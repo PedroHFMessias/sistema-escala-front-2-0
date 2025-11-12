@@ -1,3 +1,4 @@
+// src/components/layout/Layout.tsx
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -10,8 +11,9 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  User,
-} from 'lucide-react';
+  Shield,   
+  FileText 
+} from 'lucide-react'; // ATUALIZAÇÃO 1: Removido 'User' que não era usado
 import { theme } from '../../styles/theme';
 import { ChurchIcon } from '../ui/ChurchIcon';
 import { useAuth } from '../../context/AuthContext';
@@ -20,12 +22,15 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+// ATUALIZAÇÃO 2: Definido o tipo de papel
+type UserRole = 'director' | 'coordinator' | 'volunteer' | 'both';
+
 interface NavigationItem {
   id: string;
   label: string;
   icon: React.ReactNode;
   path: string;
-  role: 'coordinator' | 'volunteer' | 'both';
+  role: UserRole;
   subItems?: NavigationItem[];
 }
 
@@ -38,15 +43,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const { userRole, logout } = useAuth();
 
-  // Nomes de usuário para simulação
-  const userName = userRole === 'coordinator' ? 'João Silva' : 'Maria Souza';
-  const userEmail = userRole === 'coordinator' ? 'joao.silva@paroquia.com' : 'maria.souza@paroquia.com';
-  const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
+  // ATUALIZAÇÃO 3: Lógica de simulação de nomes CORRIGIDA
+  const userName = userRole === 'director' ? 'Sr. Diretor' : (userRole === 'coordinator' ? 'João Silva' : 'Maria Souza');
+  const userEmail = userRole === 'director' ? 'diretor@paroquia.com' : (userRole === 'coordinator' ? 'joao.silva@paroquia.com' : 'maria.souza@paroquia.com');
+  
+  // ATUALIZAÇÃO 4: Corrigido o erro de 'any' implícito (n => n[0])
+  const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
 
-  // ===== ALTERAÇÃO PARA TRADUZIR O PAPEL =====
-  const userRoleInPortuguese = userRole === 'coordinator' ? 'Coordenador' : 'Voluntário';
-  // ==========================================
+  // ATUALIZAÇÃO 5: Lógica de tradução CORRIGIDA
+  const userRoleInPortuguese = userRole === 'director' ? 'Diretor' : (userRole === 'coordinator' ? 'Coordenador' : 'Voluntário');
 
+  // ATUALIZAÇÃO 6: Itens de navegação CORRIGIDOS (com ícones certos)
   const navigationItems: NavigationItem[] = [
     { id: 'home', label: 'Início', icon: <Home size={20} />, path: '/', role: 'both' },
     {
@@ -56,7 +63,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       path: '/cadastros',
       role: 'coordinator',
       subItems: [
-        { id: 'ministerios', label: 'Ministérios', icon: <Users size={16} />, path: '/cadastros/ministerios', role: 'coordinator' },
+        { id: 'ministerios', label: 'Ministérios', icon: <Shield size={16} />, path: '/cadastros/ministerios', role: 'director' },
         { id: 'membros', label: 'Membros', icon: <UserCheck size={16} />, path: '/cadastros/membros', role: 'coordinator' },
       ],
     },
@@ -66,7 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <Calendar size={20} />,
       path: '/escalas',
       role: 'both',
-      subItems: userRole === 'coordinator'
+      subItems: (userRole === 'coordinator' || userRole === 'director')
         ? [
             { id: 'gerenciar-escalas', label: 'Gerenciar Escalas', icon: <Settings size={16} />, path: '/escalas/gerenciar', role: 'coordinator' },
             { id: 'visualizar-escalas', label: 'Visualizar Escalas', icon: <Calendar size={16} />, path: '/escalas', role: 'both' },
@@ -76,22 +83,35 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             { id: 'visualizar-escalas', label: 'Todas as Escalas', icon: <Calendar size={16} />, path: '/escalas', role: 'both' },
           ],
     },
+    // Adicionado 'FileText' que estava faltando
+    { id: 'relatorios', label: 'Relatórios', icon: <FileText size={20} />, path: '/relatorios', role: 'coordinator' },
     { id: 'confirmacoes', label: 'Confirmações', icon: <UserCheck size={20} />, path: '/confirmacoes', role: 'volunteer' },
   ];
 
-  const filteredNavigation = navigationItems.filter(item => item.role === 'both' || item.role === userRole);
+  // Filtro de navegação (está correto)
+  const filteredNavigation = navigationItems.filter(item => {
+    if (userRole === 'director') {
+      return item.role === 'director' || item.role === 'coordinator' || item.role === 'both';
+    }
+    return item.role === 'both' || item.role === userRole;
+  });
 
   const toggleSubmenu = (itemId: string) => {
     setExpandedMenus(prev => (prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]));
   };
 
+  // Lógica de rota ativa (ajustada para não bugar /escalas)
   const isActiveRoute = (path: string): boolean => {
+    if (path === '/escalas') {
+      return location.pathname === '/escalas';
+    }
     return path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
   };
 
   const handleNavigation = (path: string) => {
     navigate(path);
     if(sidebarOpen) setSidebarOpen(false);
+    setUserMenuOpen(false); // Fecha o menu de usuário
   };
 
   const handleLogout = () => {
@@ -137,14 +157,21 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
               {item.subItems && expandedMenus.includes(item.id) && (
                 <div style={{ paddingLeft: '1rem' }}>
-                  {item.subItems.map((subItem) => (
-                    <div key={subItem.id} onClick={() => handleNavigation(subItem.path)}
-                         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', margin: '0.25rem 0.5rem', borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: isActiveRoute(subItem.path) ? theme.colors.primary[600] : theme.colors.text.secondary, backgroundColor: isActiveRoute(subItem.path) ? theme.colors.primary[50] : 'transparent', transition: 'all 0.2s ease-in-out' }}
-                         onMouseEnter={(e) => { if (!isActiveRoute(subItem.path)) { e.currentTarget.style.backgroundColor = theme.colors.gray[50]; } }}
-                         onMouseLeave={(e) => { if (!isActiveRoute(subItem.path)) { e.currentTarget.style.backgroundColor = 'transparent'; } }}>
-                      {subItem.icon}
-                      <span>{subItem.label}</span>
-                    </div>
+                  {item.subItems
+                    .filter(subItem => { 
+                      if (userRole === 'director') {
+                        return subItem.role === 'director' || subItem.role === 'coordinator' || subItem.role === 'both';
+                      }
+                      return subItem.role === 'both' || subItem.role === userRole;
+                    })
+                    .map((subItem) => (
+                      <div key={subItem.id} onClick={() => handleNavigation(subItem.path)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', margin: '0.25rem 0.5rem', borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: isActiveRoute(subItem.path) ? theme.colors.primary[600] : theme.colors.text.secondary, backgroundColor: isActiveRoute(subItem.path) ? theme.colors.primary[50] : 'transparent', transition: 'all 0.2s ease-in-out' }}
+                          onMouseEnter={(e) => { if (!isActiveRoute(subItem.path)) { e.currentTarget.style.backgroundColor = theme.colors.gray[50]; } }}
+                          onMouseLeave={(e) => { if (!isActiveRoute(subItem.path)) { e.currentTarget.style.backgroundColor = 'transparent'; } }}>
+                        {subItem.icon}
+                        <span>{subItem.label}</span>
+                      </div>
                   ))}
                 </div>
               )}
@@ -174,11 +201,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </div>
                 <div style={{ textAlign: 'left' }}>
                   <p style={{ fontSize: '0.875rem', fontWeight: '500' }}>{userName}</p>
-                  {/* ===== MUDANÇA PARA USAR O PAPEL EM PORTUGUÊS ===== */}
                   <p style={{ fontSize: '0.75rem', color: theme.colors.text.secondary }}>
                     {userRoleInPortuguese}
                   </p>
-                  {/* ================================================= */}
                 </div>
                 <ChevronDown size={16} />
               </button>
@@ -188,13 +213,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <p style={{ fontSize: '0.875rem', fontWeight: '500' }}>{userName}</p>
                     <p style={{ fontSize: '0.75rem', color: theme.colors.text.secondary }}>{userEmail}</p>
                   </div>
+                  
+                  {/* Bloco "Meu Perfil" REMOVIDO */}
+
                   <div style={{ padding: '0.5rem' }}>
-                    <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.5rem', border: 'none', borderRadius: theme.borderRadius.md, backgroundColor: 'transparent', cursor: 'pointer', fontSize: '0.875rem' }}>
-                      <User size={16} />
-                      <span>Meu Perfil</span>
-                    </button>
-                  </div>
-                  <div style={{ padding: '0.5rem', borderTop: `1px solid ${theme.colors.border}` }}>
                     <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.5rem', border: 'none', borderRadius: theme.borderRadius.md, backgroundColor: 'transparent', cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.danger[600] }}>
                       <LogOut size={16} />
                       <span>Sair</span>

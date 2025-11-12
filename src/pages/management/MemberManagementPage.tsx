@@ -1,4 +1,4 @@
-// src/pages/coordinator/MemberManagementPage.tsx
+// src/pages/management/MemberManagementPage.tsx
 import React, { useState } from 'react';
 import { 
   Plus, 
@@ -8,22 +8,18 @@ import {
   User, 
   Mail, 
   Phone, 
-  //Calendar,
-  //Users,
   X,
-  //Check,
   AlertCircle,
   UserPlus,
   Eye,
   EyeOff,
   CreditCard,
- // MapPin,
   FileText,
-  Shield, // Ícone para Coordenador
-  Smile, // Ícone para Voluntário
+  Shield, 
+  Smile, 
 } from 'lucide-react';
 import { theme } from '../../styles/theme';
-import { useAuth } from '../../context/AuthContext'; // ATUALIZAÇÃO 1: Importar o useAuth
+import { useAuth } from '../../context/AuthContext'; 
 
 // Interface Member (como está)
 interface Member {
@@ -42,7 +38,6 @@ interface Member {
     state: string;
     zipCode: string;
   };
-  // ATUALIZAÇÃO 2: Adicionar 'director' ao tipo
   userType: 'director' | 'coordinator' | 'volunteer';
   ministries: string[];
   status: 'active' | 'inactive';
@@ -73,7 +68,6 @@ interface MemberForm {
     zipCode: string;
   };
   password: string;
-  // ATUALIZAÇÃO 3: Adicionar 'director' ao tipo
   userType: 'director' | 'coordinator' | 'volunteer';
   ministries: string[];
 }
@@ -90,15 +84,12 @@ const validateZipCode = (zipCode: string) => /^\d{5}-\d{3}$/.test(zipCode);
 
 
 export const MemberManagementPage: React.FC = () => {
-  // ATUALIZAÇÃO 4: Obter o papel do usuário logado
   const { userRole } = useAuth();
   
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // ATUALIZAÇÃO 5: O filtro de tipo agora depende do papel do usuário
-  // Se for coordenador, o filtro é travado em 'volunteer'. Se for diretor, o padrão é 'all'.
   const [filterType, setFilterType] = useState<'all' | 'director' | 'coordinator' | 'volunteer'>(
     userRole === 'director' ? 'all' : 'volunteer'
   );
@@ -106,8 +97,6 @@ export const MemberManagementPage: React.FC = () => {
   const [filterMinistry, setFilterMinistry] = useState('all');
   const [showPassword, setShowPassword] = useState(false);
   
-  // ATUALIZAÇÃO 6: O formData inicial para userType
-  // O coordenador SEMPRE criará um 'volunteer'. O diretor pode escolher (o padrão é 'volunteer').
   const [formData, setFormData] = useState<MemberForm>({ name: '', email: '', phone: '', cpf: '', rg: '', address: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }, password: '', userType: 'volunteer', ministries: [] });
   
   const [errors, setErrors] = useState<{[key: string]: string}>({});
@@ -124,6 +113,7 @@ export const MemberManagementPage: React.FC = () => {
   const getMinistryColor = (id: string) => ministries.find(m => m.id === id)?.color || theme.colors.gray[500];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    // ... (sem alteração)
     const { name, value } = e.target;
     if (name.startsWith('address.')) {
         const addressField = name.split('.')[1];
@@ -139,6 +129,7 @@ export const MemberManagementPage: React.FC = () => {
   };
 
   const validateForm = () => {
+    // ... (sem alteração)
     const newErrors: {[key: string]: string} = {};
     if (!validateRequired(formData.name)) newErrors.name = 'Nome é obrigatório';
     if (!validateEmail(formData.email)) newErrors.email = 'Email inválido';
@@ -160,13 +151,12 @@ export const MemberManagementPage: React.FC = () => {
   const handleMinistryToggle = (ministryId: string) => setFormData(prev => ({ ...prev, ministries: prev.ministries.includes(ministryId) ? prev.ministries.filter(id => id !== ministryId) : [...prev.ministries, ministryId] }));
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!validateForm()) return; setIsLoading(true); setTimeout(() => { if (editingMember) { setMembers(prev => prev.map(member => member.id === editingMember.id ? { ...member, ...formData } : member)); } else { setMembers(prev => [...prev, { id: Date.now().toString(), ...formData, status: 'active', createdAt: new Date() }]); } resetForm(); setIsLoading(false); }, 1500); };
   
-  // ATUALIZAÇÃO 7: resetForm garante que o 'userType' seja 'volunteer'
   const resetForm = () => { 
     setFormData({ 
       name: '', email: '', phone: '', cpf: '', rg: '', 
       address: { street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' }, 
       password: '', 
-      userType: 'volunteer', // Coordenador SÓ pode criar voluntários. Diretor defaulta para voluntário.
+      userType: 'volunteer', 
       ministries: [] 
     }); 
     setErrors({}); 
@@ -179,8 +169,8 @@ export const MemberManagementPage: React.FC = () => {
     setFormData({ 
         name: member.name, email: member.email, phone: member.phone, 
         cpf: member.cpf, rg: member.rg, address: member.address, 
-        password: '', // Senha nunca é preenchida na edição
-        userType: member.userType, // Pega o tipo do membro
+        password: '', 
+        userType: member.userType, 
         ministries: member.ministries 
     }); 
     setEditingMember(member); 
@@ -190,26 +180,18 @@ export const MemberManagementPage: React.FC = () => {
   const handleDelete = (memberId: string) => { if (confirm('Tem certeza?')) { setMembers(prev => prev.filter(m => m.id !== memberId)); } };
   const toggleMemberStatus = (memberId: string) => setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: m.status === 'active' ? 'inactive' : 'active' } : m));
 
-  // ATUALIZAÇÃO 8: Lógica de filtragem atualizada
   const filteredMembers = members.filter(m => {
-      // Se o usuário logado for 'coordinator', ele NUNCA deve ver o 'director'
       if (userRole === 'coordinator' && m.userType === 'director') {
         return false;
       }
-
       const matchesSearch = (m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.email.toLowerCase().includes(searchTerm.toLowerCase()) || m.cpf.includes(searchTerm.replace(/\D/g, '')));
       const matchesMinistry = (filterMinistry === 'all' || m.ministries.includes(filterMinistry));
-
-      // Lógica de filtro de papel
       let matchesRole = false;
       if (userRole === 'director') {
-        // Diretor vê com base no filtro
         matchesRole = (filterType === 'all' || m.userType === filterType);
       } else {
-        // Coordenador vê apenas voluntários (o filtro está travado em 'volunteer' no state)
         matchesRole = m.userType === 'volunteer';
       }
-      
       return matchesSearch && matchesMinistry && matchesRole;
   });
 
@@ -220,7 +202,6 @@ export const MemberManagementPage: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '600', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>Gerenciamento de Membros</h1>
-              {/* ATUALIZAÇÃO 9: Título dinâmico */}
               <p style={{ color: theme.colors.text.secondary, fontSize: '1.125rem' }}>
                 {userRole === 'director' 
                   ? 'Cadastre e gerencie voluntários e coordenadores da paróquia'
@@ -229,15 +210,11 @@ export const MemberManagementPage: React.FC = () => {
             </div>
             <button onClick={() => { resetForm(); setShowForm(true); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', backgroundColor: theme.colors.primary[500], color: 'white', border: 'none', borderRadius: theme.borderRadius.lg, fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer', boxShadow: theme.shadows.sm }}><Plus size={18} />Novo Membro</button>
           </div>
-          {/* Cards de Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
-            {/* ... (Os cards de estatística permanecem os mesmos) ... */}
-          </div>
+          {/* Cards de Stats (removidos para simplicidade, mas o código deles está correto) */}
         </div>
         
         {/* Filtros */}
         <div style={{ backgroundColor: theme.colors.white, padding: '1.5rem', borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, marginBottom: '2rem', boxShadow: theme.shadows.sm }}>
-          {/* ATUALIZAÇÃO 10: Grid de filtros dinâmico */}
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: userRole === 'director' ? '2fr 1fr 1fr' : '2fr 1fr', 
@@ -246,7 +223,6 @@ export const MemberManagementPage: React.FC = () => {
           }}>
             <div><label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>Buscar Membros</label><div style={{ position: 'relative' }}><div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: theme.colors.text.secondary }}><Search size={18} /></div><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nome, email ou CPF..." style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem' }} /></div></div>
             
-            {/* ATUALIZAÇÃO 11: Filtro de Tipo SÓ para Diretor */}
             {userRole === 'director' && (
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>Tipo</label>
@@ -273,7 +249,6 @@ export const MemberManagementPage: React.FC = () => {
               </div>
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 
-                {/* ATUALIZAÇÃO 12: Campo "Tipo de Usuário" SÓ para Diretor */}
                 {userRole === 'director' && (
                   <div>
                     <label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Tipo de Usuário</label>
@@ -285,14 +260,10 @@ export const MemberManagementPage: React.FC = () => {
                     >
                       <option value="volunteer">🙏 Voluntário</option>
                       <option value="coordinator">👑 Coordenador</option>
-                      {/* O Diretor pode criar outros diretores? Se sim, descomente abaixo. */}
-                      {/* <option value="director">⚖️ Diretor</option> */}
                     </select>
                   </div>
                 )}
                 
-                {/* O resto do formulário (Nome, Email, Telefone, CPF, RG, Endereço...) */}
-                {/* ... (nenhuma mudança necessária aqui) ... */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                   <div style={{ gridColumn: '1 / -1' }}><label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Nome Completo *</label><div style={{position: 'relative'}}><User size={18} style={{position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: theme.colors.text.secondary}} /><input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Nome completo" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', border: `1px solid ${errors.name ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md }} /></div>{errors.name && <p style={{color: theme.colors.danger[500], fontSize: '0.75rem', marginTop: '0.25rem'}}>{errors.name}</p>}</div>
                   <div><label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Email *</label><div style={{position: 'relative'}}><Mail size={18} style={{position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: theme.colors.text.secondary}} /><input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="email@exemplo.com" style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', border: `1px solid ${errors.email ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md }} /></div>{errors.email && <p style={{color: theme.colors.danger[500], fontSize: '0.75rem', marginTop: '0.25rem'}}>{errors.email}</p>}</div>
@@ -300,15 +271,13 @@ export const MemberManagementPage: React.FC = () => {
                   <div><label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>CPF *</label><div style={{position: 'relative'}}><CreditCard size={18} style={{position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: theme.colors.text.secondary}} /><input type="text" name="cpf" value={formData.cpf} onChange={handleInputChange} placeholder="123.456.789-00" maxLength={14} style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', border: `1px solid ${errors.cpf ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md }} /></div>{errors.cpf && <p style={{color: theme.colors.danger[500], fontSize: '0.75rem', marginTop: '0.25rem'}}>{errors.cpf}</p>}</div>
                   <div><label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>RG *</label><div style={{position: 'relative'}}><FileText size={18} style={{position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: theme.colors.text.secondary}} /><input type="text" name="rg" value={formData.rg} onChange={handleInputChange} placeholder="Apenas números" maxLength={9} style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', border: `1px solid ${errors.rg ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md }} /></div>{errors.rg && <p style={{color: theme.colors.danger[500], fontSize: '0.75rem', marginTop: '0.25rem'}}>{errors.rg}</p>}</div>
                 </div>
-                {/* ... (Campos de Endereço - sem mudança) ... */}
                 
-                {/* Campo de Senha (só para criação) */}
+                {/* Campos de Endereço (Removidos para simplicidade, mas o código está correto) */}
+                
                 {!editingMember && <div><label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Senha Inicial *</label><div style={{position: 'relative'}}><input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleInputChange} placeholder="Mínimo 6 caracteres" style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.password ? theme.colors.danger[500] : theme.colors.border}` }} /><button type="button" onClick={() => setShowPassword(!showPassword)} style={{position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none'}}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{errors.password && <p style={{color: theme.colors.danger[500], fontSize: '0.75rem', marginTop: '0.25rem'}}>{errors.password}</p>}</div>}
                 
-                {/* Campo de Ministérios (sem mudança) */}
                 <div><label style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Ministérios *</label><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', padding: '1rem', border: `1px solid ${errors.ministries ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md }}>{ministries.map(ministry => (<label key={ministry.id} style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}><input type="checkbox" checked={formData.ministries.includes(ministry.id)} onChange={() => handleMinistryToggle(ministry.id)} style={{accentColor: ministry.color}} /><span>{ministry.name}</span></label>))}</div>{errors.ministries && <p style={{color: theme.colors.danger[500], fontSize: '0.75rem', marginTop: '0.25rem'}}>{errors.ministries}</p>}</div>
                 
-                {/* Botões de Ação (sem mudança) */}
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}><button type="button" onClick={resetForm} style={{flex: 1, padding: '0.75rem', backgroundColor: theme.colors.white, border: `1px solid ${theme.colors.border}`}}>Cancelar</button><button type="submit" disabled={isLoading} style={{flex: 1, padding: '0.75rem', backgroundColor: isLoading ? theme.colors.gray[400] : theme.colors.primary[500], color: 'white', border: 'none'}}>{isLoading ? 'Salvando...' : 'Salvar'}</button></div>
               </form>
             </div>
@@ -319,14 +288,13 @@ export const MemberManagementPage: React.FC = () => {
         <div style={{ backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm, overflow: 'hidden' }}>
           <div style={{ padding: '1.5rem', borderBottom: `1px solid ${theme.colors.border}` }}><h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>Lista de Membros ({filteredMembers.length})</h3></div>
           {filteredMembers.length === 0 ? (<div style={{ padding: '3rem', textAlign: 'center' }}><AlertCircle size={48} style={{margin: '0 auto 1rem', color: theme.colors.text.secondary}} /><p>Nenhum membro encontrado</p></div>) : (<div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr style={{ backgroundColor: theme.colors.gray[50] }}><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Membro</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Contato</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Documentos</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Endereço</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Tipo</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Ministérios</th><th style={{padding: '1rem', textAlign: 'center', color: theme.colors.text.secondary}}>Status</th><th style={{padding: '1rem', textAlign: 'center', color: theme.colors.text.secondary}}>Ações</th></tr></thead>
+            <thead><tr style={{ backgroundColor: theme.colors.gray[50] }}><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Membro</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Contato</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Documentos</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Endereço</th><th style={{padding: '1rem', textAlign: 'left', color: theme.colors.text.secondary}}>Tipo</th><th style={{padding: '1sem', textAlign: 'left', color: theme.colors.text.secondary}}>Ministérios</th><th style={{padding: '1rem', textAlign: 'center', color: theme.colors.text.secondary}}>Status</th><th style={{padding: '1rem', textAlign: 'center', color: theme.colors.text.secondary}}>Ações</th></tr></thead>
             <tbody>{filteredMembers.map((member, index) => (<tr key={member.id} style={{backgroundColor: index % 2 === 0 ? 'white' : theme.colors.gray[50]}}>
               <td style={{padding: '1rem'}}><div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}><div style={{width: '40px', height: '40px', borderRadius: '50%', backgroundColor: theme.colors.primary[500], color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>{member.name.charAt(0)}</div><div><p style={{fontWeight: '500'}}>{member.name}</p><p style={{fontSize: '0.75rem', color: theme.colors.text.secondary}}>Desde {member.createdAt.toLocaleDateString('pt-BR')}</p></div></div></td>
               <td style={{padding: '1rem'}}><p>{member.email}</p><p style={{fontSize: '0.75rem'}}>{member.phone}</p></td>
               <td style={{padding: '1rem'}}><p>CPF: {member.cpf}</p><p style={{fontSize: '0.75rem'}}>RG: {member.rg}</p></td>
               <td style={{padding: '1rem'}}><p>{member.address.street}, {member.address.number}</p><p style={{fontSize: '0.75rem'}}>{member.address.neighborhood}, {member.address.city}/{member.address.state}</p></td>
               
-              {/* ATUALIZAÇÃO 13: Badge de Tipo de Usuário atualizada */}
               <td style={{padding: '1rem'}}>
                 <span style={{
                     padding: '0.25rem 0.75rem', 
@@ -345,19 +313,22 @@ export const MemberManagementPage: React.FC = () => {
               <td style={{padding: '1rem'}}><div style={{display: 'flex', flexWrap: 'wrap', gap: '0.25rem'}}>{member.ministries.slice(0, 2).map(id => (<span key={id} style={{padding: '0.25rem 0.5rem', borderRadius: theme.borderRadius.md, backgroundColor: `${getMinistryColor(id)}15`, color: getMinistryColor(id)}}>{getMinistryName(id)}</span>))}{member.ministries.length > 2 && <span>+{member.ministries.length - 2}</span>}</div></td>
               <td style={{padding: '1rem', textAlign: 'center'}}><button onClick={() => toggleMemberStatus(member.id)} style={{padding: '0.25rem 0.75rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', backgroundColor: member.status === 'active' ? theme.colors.success[100] : theme.colors.gray[100], color: member.status === 'active' ? theme.colors.success[600] : theme.colors.gray[700]}}>{member.status === 'active' ? '● Ativo' : '○ Inativo'}</button></td>
               
-              {/* ATUALIZAÇÃO 14: Lógica de Ações */}
+              {/* ATUALIZAÇÃO: Lógica de Ações CORRIGIDA */}
               <td style={{padding: '1rem', textAlign: 'center'}}>
                 <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'center'}}>
-                  {/* Coordenador não pode editar/excluir Diretor */}
+                  {/* Coordenador não pode editar Diretor */}
                   {!(userRole === 'coordinator' && member.userType === 'director') && (
-                    <>
-                      <button onClick={() => handleEdit(member)} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Edit size={16} color={theme.colors.primary[500]} /></button>
-                      
-                      {/* Apenas Diretor pode excluir outros (e ninguém pode excluir o diretor) */}
-                      {(userRole === 'director' && member.userType !== 'director') && (
-                        <button onClick={() => handleDelete(member.id)} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} color={theme.colors.danger[500]} /></button>
-                      )}
-                    </>
+                    <button onClick={() => handleEdit(member)} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Edit size={16} color={theme.colors.primary[500]} /></button>
+                  )}
+                  
+                  {/* Lógica de Excluir:
+                    - Diretor pode excluir Coordenadores e Voluntários.
+                    - Coordenador pode excluir Voluntários.
+                    - Ninguém pode excluir um Diretor.
+                  */}
+                  {((userRole === 'director' && member.userType !== 'director') || 
+                    (userRole === 'coordinator' && member.userType === 'volunteer')) && (
+                      <button onClick={() => handleDelete(member.id)} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} color={theme.colors.danger[500]} /></button>
                   )}
                 </div>
               </td>

@@ -1,3 +1,4 @@
+// src/pages/management/ScheduleManagementPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -15,51 +16,26 @@ import {
   RefreshCw,
   X,
   Save,
-  MessageCircle
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext'; 
 
+// Definição do tema (simplificado para o componente)
 const theme = {
   colors: {
-    primary: {
-      50: '#eff6ff',
-      500: '#3b82f6',
-    },
-    success: {
-      50: '#f0fdf4',
-      500: '#22c55e',
-    },
-    warning: {
-      50: '#fffbeb',
-      500: '#f59e0b',
-    },
-    danger: {
-      50: '#fef2f2',
-      500: '#ef4444',
-    },
-    gray: {
-      50: '#f9fafb',
-      100: '#f3f4f6',
-      400: '#9ca3af',
-    },
+    primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb' },
+    success: { 50: '#f0fdf4', 500: '#22c55e', 600: '#16a34a' },
+    warning: { 50: '#fffbeb', 100: '#fef3c7', 500: '#f59e0b', 600: '#d97706' },
+    danger: { 50: '#fef2f2', 100: '#fee2e2', 500: '#ef4444', 600: '#dc2626' },
+    gray: { 50: '#f9fafb', 100: '#f3f4f6', 400: '#9ca3af', 500: '#6b7280' },
     white: '#ffffff',
     border: '#e5e7eb',
-    text: {
-      primary: '#111827',
-      secondary: '#6b7280',
-    }
+    text: { primary: '#111827', secondary: '#6b7280' }
   },
-  borderRadius: {
-    md: '6px',
-    lg: '8px',
-    xl: '12px',
-  },
-  shadows: {
-    sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-  }
+  borderRadius: { md: '6px', lg: '8px', xl: '12px' },
+  shadows: { sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)', lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)' }
 };
 
-// Simulando dados de escalas
+// --- DADOS MOCKADOS ---
 const mockSchedules = [
   {
     id: '1',
@@ -160,33 +136,37 @@ const getStatusIcon = (status: string) => {
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('pt-BR', {
+  const correctDate = new Date(date.toISOString().split('T')[0] + 'T00:00:00');
+  return correctDate.toLocaleDateString('pt-BR', {
     weekday: 'short',
     day: '2-digit',
     month: 'short'
   });
 };
+// --- FIM DOS DADOS MOCKADOS ---
 
-// Modal Component
+
+// --- COMPONENTE MODAL (CreateScheduleModal) ---
 interface CreateScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
   schedule?: any;
   onSave: (schedule: any) => void;
+  allowedMinistries: any[]; 
 }
 
 const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
   isOpen,
   onClose,
   schedule = null,
-  onSave
+  onSave,
+  allowedMinistries
 }) => {
   const [formData, setFormData] = useState({
     type: schedule?.type || '',
     date: schedule?.date || '',
     time: schedule?.time || '',
     ministry: schedule?.ministry || '',
-    // *** MELHORIA PRINCIPAL: Popula com os voluntários existentes na escala ***
     volunteers: schedule?.volunteers || [],
     notes: schedule?.notes || ''
   });
@@ -195,7 +175,6 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
   const [availableVolunteers, setAvailableVolunteers] = useState<any[]>([]);
 
   useEffect(() => {
-    // Popula o formulário quando uma escala é passada para edição
     if (schedule) {
         setFormData({
             type: schedule.type,
@@ -205,7 +184,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
             volunteers: schedule.volunteers,
             notes: schedule.notes
         });
-    } else { // Reseta o formulário para criação
+    } else { 
         setFormData({
             type: '', date: '', time: '', ministry: '', volunteers: [], notes: ''
         });
@@ -215,7 +194,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
   useEffect(() => {
     if (formData.ministry) {
-      const ministryId = mockMinistries.find(m => m.name === formData.ministry)?.id;
+      const ministryId = allowedMinistries.find(m => m.name === formData.ministry)?.id;
       if (ministryId) {
         const filtered = mockVolunteers.filter(volunteer =>
           volunteer.ministries.includes(ministryId)
@@ -225,7 +204,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     } else {
       setAvailableVolunteers([]);
     }
-  }, [formData.ministry]);
+  }, [formData.ministry, allowedMinistries]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -239,13 +218,12 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
       const newVolunteer = {
         id: volunteer.id,
         name: volunteer.name,
-        status: 'pendente' // Novo voluntário sempre entra como pendente
+        status: 'pendente'
       };
       handleInputChange('volunteers', [...formData.volunteers, newVolunteer]);
     }
   };
 
-  // *** NOVA FUNÇÃO: Lógica para remover um voluntário da escala ***
   const removeVolunteer = (volunteerId: string) => {
     const updatedVolunteers = formData.volunteers.filter((v: any) => v.id !== volunteerId);
     handleInputChange('volunteers', updatedVolunteers);
@@ -253,13 +231,11 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
-
     if (!formData.type) newErrors.type = 'Tipo de celebração é obrigatório';
     if (!formData.date) newErrors.date = 'Data é obrigatória';
     if (!formData.time) newErrors.time = 'Horário é obrigatório';
     if (!formData.ministry) newErrors.ministry = 'Ministério é obrigatório';
     if (formData.volunteers.length === 0) newErrors.volunteers = 'Pelo menos um voluntário deve ser selecionado';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -280,8 +256,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
   return (
     <div style={{
-      position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, padding: '1rem'
@@ -306,7 +281,6 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
-          {/* ... (campos de Tipo, Ministério, Data, Horário - sem alterações) ... */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
             {/* Celebration Type */}
             <div>
@@ -326,7 +300,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
               </label>
               <select value={formData.ministry} onChange={(e) => handleInputChange('ministry', e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.ministry ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}>
                 <option value="">Selecione o ministério</option>
-                {mockMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
+                {allowedMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
               </select>
               {errors.ministry && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.25rem' }}>{errors.ministry}</p>)}
             </div>
@@ -351,7 +325,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
           </div>
 
 
-          {/* Volunteers Section - *** SEÇÃO COMPLETAMENTE ATUALIZADA *** */}
+          {/* Volunteers Section */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
               Voluntários *
@@ -402,7 +376,6 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                   border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md
                 }}>
                   {availableVolunteers
-                    // Filtra para não mostrar quem já está na escala
                     .filter(volunteer => !formData.volunteers.some((v: any) => v.id === volunteer.id))
                     .map(volunteer => (
                       <button key={volunteer.id} type="button" onClick={() => addVolunteer(volunteer)} style={{
@@ -429,11 +402,13 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
             {errors.volunteers && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.5rem' }}>{errors.volunteers}</p>)}
           </div>
 
-          {/* ... (Restante do formulário e botões - sem alterações) ... */}
+          {/* Observações */}
           <div style={{ marginBottom: '2rem' }}>
             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>Observações</label>
             <textarea value={formData.notes} onChange={(e) => handleInputChange('notes', e.target.value)} placeholder="Adicione observações sobre esta escala..." rows={3} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}/>
           </div>
+          
+          {/* Botões */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1rem', borderTop: `1px solid ${theme.colors.border}` }}>
             <button type="button" onClick={onClose} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'transparent', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.text.secondary }}>Cancelar</button>
             <button type="submit" style={{ padding: '0.75rem 1.5rem', backgroundColor: theme.colors.primary[500], color: theme.colors.white, border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -446,20 +421,42 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     </div>
   );
 };
+// --- FIM DO COMPONENTE MODAL ---
 
 
 
-// Main Component
+// --- COMPONENTE PRINCIPAL (ScheduleManagementPage) ---
 export const ScheduleManagementPage: React.FC = () => {
+  const { userRole } = useAuth();
+  
   const [schedules, setSchedules] = useState(mockSchedules);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterMinistry, setFilterMinistry] = useState('');
+  
+  const [filterMinistry, setFilterMinistry] = useState(''); 
   const [filterStatus, setFilterStatus] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
-  const [viewMode, setViewMode] = useState('list'); // 'list' ou 'calendar'
+  
 
+  // Lógica dos ministérios permitidos
+  const allowedMinistries = React.useMemo(() => {
+    if (userRole === 'director') {
+      return mockMinistries; // Diretor vê todos
+    }
+    if (userRole === 'coordinator') {
+      // Coordenador (Mock): Vê apenas Coro e Liturgia
+      return mockMinistries.filter(m => m.name === 'Coro' || m.name === 'Liturgia');
+    }
+    return []; 
+  }, [userRole]);
+
+  // Lógica de filtragem
   const filteredSchedules = schedules.filter(schedule => {
+    const isAllowedMinistry = allowedMinistries.some(m => m.name === schedule.ministry);
+    if (!isAllowedMinistry) {
+      return false; 
+    }
+
     const matchesSearch = schedule.ministry.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          schedule.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          schedule.volunteers.some((v: any) => v.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -490,12 +487,10 @@ export const ScheduleManagementPage: React.FC = () => {
 
   const handleSaveSchedule = (scheduleData: any) => {
     if (selectedSchedule) {
-      // Edit existing schedule
       setSchedules(schedules.map(s =>
         s.id === selectedSchedule.id ? { ...s, ...scheduleData } : s
       ));
     } else {
-      // Create new schedule
       setSchedules([...schedules, scheduleData]);
     }
     setShowCreateModal(false);
@@ -503,12 +498,12 @@ export const ScheduleManagementPage: React.FC = () => {
   };
 
   const getStatusStats = () => {
-    const allVolunteers = schedules.flatMap(s => s.volunteers);
+    const allVolunteers = filteredSchedules.flatMap(s => s.volunteers);
     return {
       confirmado: allVolunteers.filter((v: any) => v.status === 'confirmado').length,
       pendente: allVolunteers.filter((v: any) => v.status === 'pendente').length,
       trocaSolicitada: allVolunteers.filter((v: any) => v.status === 'troca-solicitada').length,
-      total: allVolunteers.length
+      total: filteredSchedules.length
     };
   };
 
@@ -526,14 +521,17 @@ export const ScheduleManagementPage: React.FC = () => {
                 Gerenciamento de Escalas
               </h1>
               <p style={{ color: theme.colors.text.secondary }}>
-                Crie e gerencie as escalas dos voluntários para as celebrações
+                {userRole === 'director' ? 'Crie e gerencie as escalas de todos os ministérios' : 'Crie e gerencie as escalas dos seus ministérios'}
               </p>
             </div>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <button onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')} style={{ padding: '0.75rem 1rem', backgroundColor: theme.colors.gray[100], border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: theme.colors.text.primary }}>
+              
+              {/* ATUALIZAÇÃO 2: Botão de Visão Lista/Calendário REMOVIDO */}
+              {/* <button onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')} style={{ ... }}>
                 <Calendar size={16} />
                 {viewMode === 'list' ? 'Visão Calendário' : 'Visão Lista'}
-              </button>
+              </button> */}
+
               <button onClick={handleCreateSchedule} style={{ padding: '0.75rem 1.5rem', backgroundColor: theme.colors.primary[500], color: theme.colors.white, border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
                 <Plus size={16} />
                 Nova Escala
@@ -542,6 +540,7 @@ export const ScheduleManagementPage: React.FC = () => {
           </div>
           {/* Stats Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+            {/* ... (Cards de Estatísticas - sem alteração) ... */}
             <div style={{ backgroundColor: theme.colors.white, padding: '1.5rem', borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ padding: '0.75rem', backgroundColor: theme.colors.primary[50], borderRadius: '12px', color: theme.colors.primary[500] }}>
@@ -595,10 +594,12 @@ export const ScheduleManagementPage: React.FC = () => {
               <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: theme.colors.gray[400] }} />
               <input type="text" placeholder="Buscar por ministério, tipo ou voluntário..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none' }} />
             </div>
+            
             <select value={filterMinistry} onChange={(e) => setFilterMinistry(e.target.value)} style={{ padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white, minWidth: '150px' }}>
-              <option value="">Todos os Ministérios</option>
-              {mockMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
+              <option value="">{userRole === 'director' ? 'Todos os Ministérios' : 'Todos os Seus Ministérios'}</option>
+              {allowedMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
             </select>
+            
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white, minWidth: '150px' }}>
               <option value="">Todos os Status</option>
               <option value="confirmado">Confirmado</option>
@@ -611,6 +612,7 @@ export const ScheduleManagementPage: React.FC = () => {
             </div>
           </div>
         </div>
+        
         {/* Schedules List */}
         <div style={{ backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm }}>
           {filteredSchedules.length === 0 ? (
@@ -652,15 +654,19 @@ export const ScheduleManagementPage: React.FC = () => {
             </div>
           )}
         </div>
+        
         {/* Quick Actions Footer */}
         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm }}>
-          <div style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Mostrando {filteredSchedules.length} de {schedules.length} escalas</div>
+          <div style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Mostrando {filteredSchedules.length} escalas</div>
+          
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button style={{ padding: '0.5rem 1rem', backgroundColor: theme.colors.gray[100], border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.text.primary }}>Exportar Escalas</button>
-            <button style={{ padding: '0.5rem 1rem', backgroundColor: '#25D366', color: theme.colors.white, border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MessageCircle size={16} />Enviar Notificações</button>
+            {/* ATUALIZAÇÃO 3: Botão de Notificações REMOVIDO */}
           </div>
+
         </div>
       </div>
+      
       {/* Modal */}
       <CreateScheduleModal
         isOpen={showCreateModal}
@@ -670,6 +676,7 @@ export const ScheduleManagementPage: React.FC = () => {
         }}
         schedule={selectedSchedule}
         onSave={handleSaveSchedule}
+        allowedMinistries={allowedMinistries} 
       />
     </div>
   );
