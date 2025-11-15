@@ -12,110 +12,58 @@ import {
   AlertCircle,
   XCircle,
   Eye,
-  Download,
   RefreshCw,
   X,
   Save,
+  Loader,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
+import { theme } from '../../styles/theme';
+import { api } from '../../services/api';
 
-// Definição do tema (simplificado para o componente)
-const theme = {
-  colors: {
-    primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb' },
-    success: { 50: '#f0fdf4', 500: '#22c55e', 600: '#16a34a' },
-    warning: { 50: '#fffbeb', 100: '#fef3c7', 500: '#f59e0b', 600: '#d97706' },
-    danger: { 50: '#fef2f2', 100: '#fee2e2', 500: '#ef4444', 600: '#dc2626' },
-    gray: { 50: '#f9fafb', 100: '#f3f4f6', 400: '#9ca3af', 500: '#6b7280' },
-    white: '#ffffff',
-    border: '#e5e7eb',
-    text: { primary: '#111827', secondary: '#6b7280' }
-  },
-  borderRadius: { md: '6px', lg: '8px', xl: '12px' },
-  shadows: { sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)', lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)' }
-};
+// ... (Interfaces: Volunteer, Ministry, ScheduleVolunteer, Schedule, ScheduleForm - Sem alterações) ...
+interface Volunteer {
+  id: string;
+  name: string;
+  ministries: string[];
+}
+interface Ministry {
+  id: string;
+  name: string;
+  color: string;
+  isActive: boolean;
+}
+interface ScheduleVolunteer {
+  id: string;
+  name: string;
+  status: 'confirmado' | 'pendente' | 'troca-solicitada';
+}
+interface Schedule {
+  id: string;
+  date: string;
+  time: string;
+  type: string;
+  ministry: string;
+  ministryColor: string;
+  volunteers: ScheduleVolunteer[];
+  notes: string | null;
+  createdAt: string;
+}
+interface ScheduleForm {
+  type: string;
+  date: string;
+  time: string;
+  ministryId: string;
+  volunteers: string[];
+  notes: string;
+}
 
-// --- DADOS MOCKADOS ---
-const mockSchedules = [
-  {
-    id: '1',
-    date: '2025-06-01',
-    time: '19:00',
-    type: 'Missa Dominical',
-    ministry: 'Coro',
-    volunteers: [
-      { id: '1', name: 'Maria Silva', status: 'confirmado' },
-      { id: '2', name: 'João Santos', status: 'pendente' },
-      { id: '3', name: 'Ana Costa', status: 'confirmado' }
-    ],
-    notes: 'Primeira Comunhão - preparar cantos especiais',
-    createdAt: '2025-05-20T10:00:00Z'
-  },
-  {
-    id: '2',
-    date: '2025-06-01',
-    time: '08:00',
-    type: 'Missa Matinal',
-    ministry: 'Liturgia',
-    volunteers: [
-      { id: '4', name: 'Pedro Oliveira', status: 'confirmado' },
-      { id: '5', name: 'Carla Mendes', status: 'troca-solicitada' }
-    ],
-    notes: '',
-    createdAt: '2025-05-20T11:30:00Z'
-  },
-  {
-    id: '3',
-    date: '2025-06-02',
-    time: '19:00',
-    type: 'Missa Segunda',
-    ministry: 'Acolhida',
-    volunteers: [
-      { id: '6', name: 'Lucas Ferreira', status: 'pendente' },
-      { id: '7', name: 'Beatriz Lima', status: 'confirmado' },
-      { id: '8', name: 'Roberto Cruz', status: 'confirmado' }
-    ],
-    notes: 'Novena de Santo Antônio',
-    createdAt: '2025-05-21T09:15:00Z'
-  }
-];
+// ⬇️ --- ATUALIZAÇÃO 1: REMOÇÃO DA LISTA ESTÁTICA --- ⬇️
+// const celebrationTypes = [ ... ]; // Removido!
+// ⬆️ --- FIM DA ATUALIZAÇÃO --- ⬆️
 
-const mockMinistries = [
-  { id: '1', name: 'Coro', color: '#3b82f6' },
-  { id: '2', name: 'Liturgia', color: '#f59e0b' },
-  { id: '3', name: 'Acolhida', color: '#22c55e' },
-  { id: '4', name: 'Eucaristia', color: '#8b5cf6' },
-  { id: '5', name: 'Leitura', color: '#ef4444' }
-];
 
-const mockVolunteers = [
-  { id: '1', name: 'Maria Silva', ministries: ['1', '2'] },
-  { id: '2', name: 'João Santos', ministries: ['1'] },
-  { id: '3', name: 'Ana Costa', ministries: ['2', '3'] },
-  { id: '4', name: 'Pedro Oliveira', ministries: ['3'] },
-  { id: '5', name: 'Carla Mendes', ministries: ['2'] },
-  { id: '6', name: 'Lucas Ferreira', ministries: ['3', '4'] },
-  { id: '7', name: 'Beatriz Lima', ministries: ['1', '4'] },
-  { id: '8', name: 'Roberto Cruz', ministries: ['4', '5'] },
-  { id: '9', name: 'Patricia Santos', ministries: ['1', '5'] },
-  { id: '10', name: 'Ricardo Alves', ministries: ['2', '3'] }
-];
-
-const celebrationTypes = [
-  'Missa Dominical',
-  'Missa Matinal',
-  'Missa Segunda',
-  'Missa Terça',
-  'Missa Quarta',
-  'Missa Quinta',
-  'Missa Sexta',
-  'Missa Sábado',
-  'Celebração Especial',
-  'Adoração',
-  'Via Sacra',
-  'Novena'
-];
-
+// Funções de ajuda (getStatusColor, getStatusIcon, formatDate - Sem alterações)
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'confirmado': return theme.colors.success[500];
@@ -124,7 +72,6 @@ const getStatusColor = (status: string) => {
     default: return theme.colors.gray[400];
   }
 };
-
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'confirmado': return <CheckCircle size={14} />;
@@ -133,100 +80,95 @@ const getStatusIcon = (status: string) => {
     default: return <AlertCircle size={14} />;
   }
 };
-
 const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const correctDate = new Date(date.toISOString().split('T')[0] + 'T00:00:00');
-  return correctDate.toLocaleDateString('pt-BR', {
+  const date = new Date(dateString + 'T00:00:00');
+  return date.toLocaleDateString('pt-BR', {
     weekday: 'short',
     day: '2-digit',
     month: 'short'
   });
 };
-// --- FIM DOS DADOS MOCKADOS ---
 
 
 // --- COMPONENTE MODAL (CreateScheduleModal) ---
 interface CreateScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  schedule?: any;
-  onSave: (schedule: any) => void;
-  allowedMinistries: any[]; 
+  schedule: Schedule | null;
+  onSave: (data: ScheduleForm, scheduleId: string | null) => Promise<void>;
+  isSubmitting: boolean;
+  allMinistries: Ministry[];
+  allMembers: Volunteer[];
 }
 
 const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
   isOpen,
   onClose,
-  schedule = null,
+  schedule,
   onSave,
-  allowedMinistries
+  isSubmitting,
+  allMinistries,
+  allMembers
 }) => {
-  const [formData, setFormData] = useState({
-    type: schedule?.type || '',
-    date: schedule?.date || '',
-    time: schedule?.time || '',
-    ministry: schedule?.ministry || '',
-    volunteers: schedule?.volunteers || [],
-    notes: schedule?.notes || ''
+  
+  const [formData, setFormData] = useState<ScheduleForm>({
+    type: '', date: '', time: '', ministryId: '', volunteers: [], notes: ''
   });
-
   const [errors, setErrors] = useState<{[key: string]: string}>({});
-  const [availableVolunteers, setAvailableVolunteers] = useState<any[]>([]);
+  const [availableVolunteers, setAvailableVolunteers] = useState<Volunteer[]>([]);
 
   useEffect(() => {
-    if (schedule) {
+    if (isOpen) {
+      if (schedule) {
+        const ministry = allMinistries.find(m => m.name === schedule.ministry);
         setFormData({
-            type: schedule.type,
-            date: schedule.date,
-            time: schedule.time,
-            ministry: schedule.ministry,
-            volunteers: schedule.volunteers,
-            notes: schedule.notes
+          type: schedule.type,
+          date: schedule.date,
+          time: schedule.time,
+          ministryId: ministry ? ministry.id : '',
+          volunteers: schedule.volunteers.map(v => v.id),
+          notes: schedule.notes || ''
         });
-    } else { 
+      } else {
         setFormData({
-            type: '', date: '', time: '', ministry: '', volunteers: [], notes: ''
+          type: '', date: '', time: '', ministryId: '', volunteers: [], notes: ''
         });
-    }
-  }, [schedule]);
-
-
-  useEffect(() => {
-    if (formData.ministry) {
-      const ministryId = allowedMinistries.find(m => m.name === formData.ministry)?.id;
-      if (ministryId) {
-        const filtered = mockVolunteers.filter(volunteer =>
-          volunteer.ministries.includes(ministryId)
-        );
-        setAvailableVolunteers(filtered);
       }
+      setErrors({});
+    }
+  }, [isOpen, schedule, allMinistries]);
+
+  useEffect(() => {
+    if (formData.ministryId) {
+      const filtered = allMembers.filter(volunteer =>
+        volunteer.ministries.includes(formData.ministryId)
+      );
+      setAvailableVolunteers(filtered);
     } else {
       setAvailableVolunteers([]);
     }
-  }, [formData.ministry, allowedMinistries]);
+  }, [formData.ministryId, allMembers]);
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  const addVolunteer = (volunteer: any) => {
-    if (!formData.volunteers.find((v: any) => v.id === volunteer.id)) {
-      const newVolunteer = {
-        id: volunteer.id,
-        name: volunteer.name,
-        status: 'pendente'
-      };
-      handleInputChange('volunteers', [...formData.volunteers, newVolunteer]);
+  const addVolunteer = (volunteer: Volunteer) => {
+    if (!formData.volunteers.includes(volunteer.id)) {
+      handleInputChange({
+        target: { name: 'volunteers', value: [...formData.volunteers, volunteer.id] }
+      } as any);
     }
   };
 
   const removeVolunteer = (volunteerId: string) => {
-    const updatedVolunteers = formData.volunteers.filter((v: any) => v.id !== volunteerId);
-    handleInputChange('volunteers', updatedVolunteers);
+    handleInputChange({
+      target: { name: 'volunteers', value: formData.volunteers.filter(id => id !== volunteerId) }
+    } as any);
   };
 
   const validateForm = () => {
@@ -234,22 +176,16 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     if (!formData.type) newErrors.type = 'Tipo de celebração é obrigatório';
     if (!formData.date) newErrors.date = 'Data é obrigatória';
     if (!formData.time) newErrors.time = 'Horário é obrigatório';
-    if (!formData.ministry) newErrors.ministry = 'Ministério é obrigatório';
+    if (!formData.ministryId) newErrors.ministryId = 'Ministério é obrigatório';
     if (formData.volunteers.length === 0) newErrors.volunteers = 'Pelo menos um voluntário deve ser selecionado';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      onSave({
-        ...formData,
-        id: schedule?.id || Date.now().toString(),
-        createdAt: schedule?.createdAt || new Date().toISOString()
-      });
-      onClose();
-    }
+    if (!validateForm() || isSubmitting) return;
+    await onSave(formData, schedule ? schedule.id : null);
   };
 
   if (!isOpen) return null;
@@ -274,7 +210,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
           <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: theme.colors.text.primary }}>
             {schedule ? 'Editar Escala' : 'Nova Escala'}
           </h2>
-          <button onClick={onClose} style={{ padding: '0.5rem', backgroundColor: 'transparent', border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', color: theme.colors.gray[400] }}>
+          <button onClick={onClose} disabled={isSubmitting} style={{ padding: '0.5rem', backgroundColor: 'transparent', border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', color: theme.colors.gray[400] }}>
             <X size={20} />
           </button>
         </div>
@@ -282,36 +218,45 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-            {/* Celebration Type */}
+            
+            {/* ⬇️ --- ATUALIZAÇÃO 2: <select> trocado por <input> --- ⬇️ */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
                 Tipo de Celebração *
               </label>
-              <select value={formData.type} onChange={(e) => handleInputChange('type', e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.type ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}>
-                <option value="">Selecione o tipo</option>
-                {celebrationTypes.map(type => (<option key={type} value={type}>{type}</option>))}
-              </select>
+              <input
+                type="text"
+                name="type"
+                value={formData.type}
+                onChange={handleInputChange}
+                placeholder="Ex: Missa Dominical, Batismo"
+                style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.type ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}
+              />
               {errors.type && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.25rem' }}>{errors.type}</p>)}
             </div>
+            {/* ⬆️ --- FIM DA ATUALIZAÇÃO --- ⬆️ */}
+
             {/* Ministry */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
                 Ministério *
               </label>
-              <select value={formData.ministry} onChange={(e) => handleInputChange('ministry', e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.ministry ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}>
+              <select name="ministryId" value={formData.ministryId} onChange={handleInputChange} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.ministryId ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}>
                 <option value="">Selecione o ministério</option>
-                {allowedMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
+                {allMinistries.map(ministry => (<option key={ministry.id} value={ministry.id}>{ministry.name}</option>))}
               </select>
-              {errors.ministry && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.25rem' }}>{errors.ministry}</p>)}
+              {errors.ministryId && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.25rem' }}>{errors.ministryId}</p>)}
             </div>
           </div>
+          
+          {/* ... (Restante do formulário: Data, Hora, Voluntários, Observações, Botões - Sem alterações) ... */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
             {/* Date */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
                 Data *
               </label>
-              <input type="date" value={formData.date} onChange={(e) => handleInputChange('date', e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.date ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }} />
+              <input type="date" name="date" value={formData.date} onChange={handleInputChange} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.date ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }} />
               {errors.date && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.25rem' }}>{errors.date}</p>)}
             </div>
             {/* Time */}
@@ -319,101 +264,129 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
                 Horário *
               </label>
-              <input type="time" value={formData.time} onChange={(e) => handleInputChange('time', e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.time ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}/>
+              <input type="time" name="time" value={formData.time} onChange={handleInputChange} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.time ? theme.colors.danger[500] : theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white }}/>
               {errors.time && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.25rem' }}>{errors.time}</p>)}
             </div>
           </div>
 
-
-          {/* Volunteers Section */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
               Voluntários *
             </label>
-
-            {/* Lista de Voluntários já Selecionados */}
-            <div style={{
-              backgroundColor: theme.colors.gray[50],
-              borderRadius: theme.borderRadius.md,
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.75rem' }}>
-                Voluntários na Escala ({formData.volunteers.length})
-              </h4>
-              {formData.volunteers.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {formData.volunteers.map((volunteer: any) => (
-                    <div key={volunteer.id} style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
-                      backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.md,
-                      border: `1px solid ${theme.colors.border}`, fontSize: '0.875rem'
-                    }}>
-                      <span>{volunteer.name}</span>
-                      <button type="button" onClick={() => removeVolunteer(volunteer.id)} style={{
-                          padding: '0.25rem', backgroundColor: 'transparent', border: 'none',
-                          cursor: 'pointer', color: theme.colors.danger[500], borderRadius: '4px'
-                        }}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                 <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Nenhum voluntário selecionado.</p>
-              )}
-            </div>
-
-            {/* Lista de Voluntários Disponíveis para Adicionar */}
-            {formData.ministry && (
-              <div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              {/* Lista de Selecionados */}
+              <div style={{
+                flex: 1,
+                backgroundColor: theme.colors.gray[50],
+                borderRadius: theme.borderRadius.md,
+                padding: '1rem',
+                minHeight: '150px'
+              }}>
                 <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.75rem' }}>
-                  Adicionar Voluntários do Ministério de {formData.ministry}
+                  Selecionados ({formData.volunteers.length})
                 </h4>
-                <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem',
-                  maxHeight: '150px', overflowY: 'auto', padding: '0.5rem',
-                  border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md
-                }}>
-                  {availableVolunteers
-                    .filter(volunteer => !formData.volunteers.some((v: any) => v.id === volunteer.id))
-                    .map(volunteer => (
-                      <button key={volunteer.id} type="button" onClick={() => addVolunteer(volunteer)} style={{
-                          display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
-                          backgroundColor: 'transparent', border: `1px solid ${theme.colors.border}`,
-                          borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem',
-                          transition: 'all 0.2s', textAlign: 'left'
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.colors.primary[50]; e.currentTarget.style.borderColor = theme.colors.primary[500]; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = theme.colors.border; }}
-                      >
-                        <Plus size={14} />
-                        {volunteer.name}
-                      </button>
+                {formData.volunteers.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {formData.volunteers.map((id: string) => (
+                      <div key={id} style={{
+                        display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem',
+                        backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.md,
+                        border: `1px solid ${theme.colors.border}`, fontSize: '0.875rem'
+                      }}>
+                        <span>{allMembers.find(v => v.id === id)?.name || '...'}</span>
+                        <button type="button" onClick={() => removeVolunteer(id)} style={{
+                            padding: '0.25rem', backgroundColor: 'transparent', border: 'none',
+                            cursor: 'pointer', color: theme.colors.danger[500], borderRadius: '4px'
+                          }}>
+                          <X size={14} />
+                        </button>
+                      </div>
                     ))}
-                     {availableVolunteers.filter(v => !formData.volunteers.some((fv:any) => fv.id === v.id)).length === 0 && (
-                        <p style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: '0.875rem', color: theme.colors.text.secondary }}>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Nenhum voluntário selecionado.</p>
+                )}
+              </div>
+              
+              {/* Lista de Disponíveis */}
+              <div style={{
+                flex: 1,
+                border: `1px solid ${theme.colors.border}`, 
+                borderRadius: theme.borderRadius.md,
+                maxHeight: '200px', overflowY: 'auto'
+              }}>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, padding: '0.75rem 1rem', borderBottom: `1px solid ${theme.colors.border}` }}>
+                  Adicionar Voluntários
+                </h4>
+                {!formData.ministryId ? (
+                  <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary, padding: '1rem' }}>Selecione um ministério primeiro</p>
+                ) : availableVolunteers.length === 0 ? (
+                  <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary, padding: '1rem' }}>Nenhum voluntário encontrado para este ministério.</p>
+                ) : (
+                  <div>
+                    {availableVolunteers
+                      .filter(volunteer => !formData.volunteers.includes(volunteer.id))
+                      .map(volunteer => (
+                        <button key={volunteer.id} type="button" onClick={() => addVolunteer(volunteer)} style={{
+                            width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
+                            backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${theme.colors.gray[100]}`,
+                            cursor: 'pointer', fontSize: '0.875rem', textAlign: 'left'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.colors.primary[50]; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                        >
+                          <Plus size={14} />
+                          {volunteer.name}
+                        </button>
+                    ))}
+                     {availableVolunteers.filter(v => !formData.volunteers.includes(v.id)).length === 0 && (
+                        <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary, padding: '1rem' }}>
                            Todos os voluntários deste ministério já foram adicionados.
                         </p>
                     )}
-                </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
             {errors.volunteers && (<p style={{ fontSize: '0.75rem', color: theme.colors.danger[500], marginTop: '0.5rem' }}>{errors.volunteers}</p>)}
           </div>
 
-          {/* Observações */}
           <div style={{ marginBottom: '2rem' }}>
             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>Observações</label>
-            <textarea value={formData.notes} onChange={(e) => handleInputChange('notes', e.target.value)} placeholder="Adicione observações sobre esta escala..." rows={3} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}/>
+            <textarea name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Adicione observações sobre esta escala..." rows={3} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}/>
           </div>
           
-          {/* Botões */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1rem', borderTop: `1px solid ${theme.colors.border}` }}>
-            <button type="button" onClick={onClose} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'transparent', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.text.secondary }}>Cancelar</button>
-            <button type="submit" style={{ padding: '0.75rem 1.5rem', backgroundColor: theme.colors.primary[500], color: theme.colors.white, border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Save size={16} />
-              {schedule ? 'Atualizar Escala' : 'Criar Escala'}
+            <button 
+              type="button" 
+              onClick={onClose} 
+              disabled={isSubmitting}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: 'transparent', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.text.secondary }}
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              style={{ 
+                padding: '0.75rem 1.5rem', 
+                backgroundColor: isSubmitting ? theme.colors.gray[400] : theme.colors.primary[500], 
+                color: theme.colors.white, 
+                border: 'none', 
+                borderRadius: theme.borderRadius.md, 
+                cursor: isSubmitting ? 'not-allowed' : 'pointer', 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem' 
+              }}
+            >
+              {isSubmitting && <Loader size={16} style={{ animation: 'spin 1.5s linear infinite' }} />}
+              {isSubmitting 
+                ? (schedule ? 'A atualizar...' : 'A criar...')
+                : (<><Save size={16} /> {schedule ? 'Atualizar Escala' : 'Criar Escala'}</>)
+              }
             </button>
           </div>
         </form>
@@ -426,46 +399,62 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
 
 // --- COMPONENTE PRINCIPAL (ScheduleManagementPage) ---
+// (O componente principal permanece exatamente igual à resposta anterior)
 export const ScheduleManagementPage: React.FC = () => {
   const { userRole } = useAuth();
   
-  const [schedules, setSchedules] = useState(mockSchedules);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [allMinistries, setAllMinistries] = useState<Ministry[]>([]);
+  const [allMembers, setAllMembers] = useState<Volunteer[]>([]);
+  
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const [filterMinistry, setFilterMinistry] = useState(''); 
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterMinistry, setFilterMinistry] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  
+  const loadData = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const [schedulesRes, ministriesRes, membersRes] = await Promise.all([
+        api.get('/schedules/management'),
+        api.get('/ministries'),
+        api.get('/members')
+      ]);
+      
+      setSchedules(schedulesRes.data);
+      setAllMinistries(ministriesRes.data);
+      setAllMembers(membersRes.data.map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        ministries: m.ministries
+      })));
 
-  // Lógica dos ministérios permitidos
-  const allowedMinistries = React.useMemo(() => {
-    if (userRole === 'director') {
-      return mockMinistries; // Diretor vê todos
+    } catch (error) {
+      console.error("Erro ao carregar dados da página:", error);
+      setApiError("Não foi possível carregar os dados. Tente recarregar.");
+    } finally {
+      setIsLoading(false);
     }
-    if (userRole === 'coordinator') {
-      // Coordenador (Mock): Vê apenas Coro e Liturgia
-      return mockMinistries.filter(m => m.name === 'Coro' || m.name === 'Liturgia');
-    }
-    return []; 
-  }, [userRole]);
+  };
 
-  // Lógica de filtragem
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredSchedules = schedules.filter(schedule => {
-    const isAllowedMinistry = allowedMinistries.some(m => m.name === schedule.ministry);
-    if (!isAllowedMinistry) {
-      return false; 
-    }
-
-    const matchesSearch = schedule.ministry.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = searchTerm === '' ||
+                         schedule.ministry.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          schedule.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         schedule.volunteers.some((v: any) => v.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesMinistry = !filterMinistry || schedule.ministry === filterMinistry;
-
-    const matchesStatus = !filterStatus ||
-                         schedule.volunteers.some((v: any) => v.status === filterStatus);
-
+                         schedule.volunteers.some(v => v.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesMinistry = filterMinistry === 'all' || schedule.ministry === filterMinistry;
+    const matchesStatus = filterStatus === 'all' ||
+                         schedule.volunteers.some(v => v.status === filterStatus);
     return matchesSearch && matchesMinistry && matchesStatus;
   });
 
@@ -474,39 +463,55 @@ export const ScheduleManagementPage: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const handleEditSchedule = (schedule: any) => {
+  const handleEditSchedule = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
     setShowCreateModal(true);
   };
 
-  const handleDeleteSchedule = (scheduleId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta escala?')) {
-      setSchedules(schedules.filter(s => s.id !== scheduleId));
+  const handleSaveSchedule = async (data: ScheduleForm, scheduleId: string | null) => {
+    setIsSubmitting(true);
+    setApiError(null);
+
+    try {
+      if (scheduleId) {
+        await api.put(`/schedules/management/${scheduleId}`, data);
+      } else {
+        await api.post('/schedules/management', data);
+      }
+      
+      await loadData();
+      setShowCreateModal(false);
+
+    } catch (error: any) {
+      console.error("Erro ao salvar escala:", error);
+      const message = error.response?.data?.message || "Erro desconhecido ao salvar.";
+      alert(`Erro: ${message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleSaveSchedule = (scheduleData: any) => {
-    if (selectedSchedule) {
-      setSchedules(schedules.map(s =>
-        s.id === selectedSchedule.id ? { ...s, ...scheduleData } : s
-      ));
-    } else {
-      setSchedules([...schedules, scheduleData]);
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir esta escala?')) {
+      try {
+        await api.delete(`/schedules/management/${scheduleId}`);
+        setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+      } catch (error: any) {
+        console.error("Erro ao excluir escala:", error);
+        alert(error.response?.data?.message || "Não foi possível excluir.");
+      }
     }
-    setShowCreateModal(false);
-    setSelectedSchedule(null);
   };
 
   const getStatusStats = () => {
     const allVolunteers = filteredSchedules.flatMap(s => s.volunteers);
     return {
-      confirmado: allVolunteers.filter((v: any) => v.status === 'confirmado').length,
-      pendente: allVolunteers.filter((v: any) => v.status === 'pendente').length,
-      trocaSolicitada: allVolunteers.filter((v: any) => v.status === 'troca-solicitada').length,
+      confirmado: allVolunteers.filter(v => v.status === 'confirmado').length,
+      pendente: allVolunteers.filter(v => v.status === 'pendente').length,
+      trocaSolicitada: allVolunteers.filter(v => v.status === 'troca-solicitada').length,
       total: filteredSchedules.length
     };
   };
-
   const stats = getStatusStats();
 
   return (
@@ -521,17 +526,10 @@ export const ScheduleManagementPage: React.FC = () => {
                 Gerenciamento de Escalas
               </h1>
               <p style={{ color: theme.colors.text.secondary }}>
-                {userRole === 'director' ? 'Crie e gerencie as escalas de todos os ministérios' : 'Crie e gerencie as escalas dos seus ministérios'}
+                {userRole === 'DIRECTOR' ? 'Crie e gerencie as escalas de todos os ministérios' : 'Crie e gerencie as escalas dos seus ministérios'}
               </p>
             </div>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              
-              {/* ATUALIZAÇÃO 2: Botão de Visão Lista/Calendário REMOVIDO */}
-              {/* <button onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')} style={{ ... }}>
-                <Calendar size={16} />
-                {viewMode === 'list' ? 'Visão Calendário' : 'Visão Lista'}
-              </button> */}
-
               <button onClick={handleCreateSchedule} style={{ padding: '0.75rem 1.5rem', backgroundColor: theme.colors.primary[500], color: theme.colors.white, border: 'none', borderRadius: theme.borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
                 <Plus size={16} />
                 Nova Escala
@@ -540,14 +538,13 @@ export const ScheduleManagementPage: React.FC = () => {
           </div>
           {/* Stats Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-            {/* ... (Cards de Estatísticas - sem alteração) ... */}
             <div style={{ backgroundColor: theme.colors.white, padding: '1.5rem', borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ padding: '0.75rem', backgroundColor: theme.colors.primary[50], borderRadius: '12px', color: theme.colors.primary[500] }}>
                   <Users size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>{stats.total}</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>{isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : stats.total}</p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Total de Escalas</p>
                 </div>
               </div>
@@ -558,7 +555,7 @@ export const ScheduleManagementPage: React.FC = () => {
                   <CheckCircle size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>{stats.confirmado}</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>{isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : stats.confirmado}</p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Confirmados</p>
                 </div>
               </div>
@@ -569,7 +566,7 @@ export const ScheduleManagementPage: React.FC = () => {
                   <AlertCircle size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>{stats.pendente}</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>{isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : stats.pendente}</p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Pendentes</p>
                 </div>
               </div>
@@ -580,13 +577,14 @@ export const ScheduleManagementPage: React.FC = () => {
                   <XCircle size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>{stats.trocaSolicitada}</p>
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>{isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : stats.trocaSolicitada}</p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Trocas Solicitadas</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        
         {/* Filters */}
         <div style={{ backgroundColor: theme.colors.white, padding: '1.5rem', borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, marginBottom: '1.5rem', boxShadow: theme.shadows.sm }}>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -596,47 +594,52 @@ export const ScheduleManagementPage: React.FC = () => {
             </div>
             
             <select value={filterMinistry} onChange={(e) => setFilterMinistry(e.target.value)} style={{ padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white, minWidth: '150px' }}>
-              <option value="">{userRole === 'director' ? 'Todos os Ministérios' : 'Todos os Seus Ministérios'}</option>
-              {allowedMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
+              <option value="all">Todos os Ministérios</option>
+              {allMinistries.map(ministry => (<option key={ministry.id} value={ministry.name}>{ministry.name}</option>))}
             </select>
             
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', outline: 'none', backgroundColor: theme.colors.white, minWidth: '150px' }}>
-              <option value="">Todos os Status</option>
+              <option value="all">Todos os Status</option>
               <option value="confirmado">Confirmado</option>
               <option value="pendente">Pendente</option>
               <option value="troca-solicitada">Troca Solicitada</option>
             </select>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button style={{ padding: '0.75rem', backgroundColor: theme.colors.gray[100], border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', color: theme.colors.text.secondary }} title="Atualizar"><RefreshCw size={16} /></button>
-              <button style={{ padding: '0.75rem', backgroundColor: theme.colors.gray[100], border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', color: theme.colors.text.secondary }} title="Exportar"><Download size={16} /></button>
+              <button onClick={loadData} style={{ padding: '0.75rem', backgroundColor: theme.colors.gray[100], border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', color: theme.colors.text.secondary }} title="Atualizar"><RefreshCw size={16} /></button>
+              
             </div>
           </div>
         </div>
         
         {/* Schedules List */}
         <div style={{ backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm }}>
-          {filteredSchedules.length === 0 ? (
+          
+          {isLoading ? (
+            <div style={{ padding: '3rem', textAlign: 'center' }}><Loader size={32} style={{ animation: 'spin 1.5s linear infinite' }} /></div>
+          ) : apiError ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.danger[500] }}><AlertCircle size={48} style={{margin: '0 auto 1rem'}} /><p>{apiError}</p></div>
+          ) : filteredSchedules.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.text.secondary }}>
               <Calendar size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
               <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '0.5rem' }}>Nenhuma escala encontrada</h3>
-              <p>Tente ajustar os filtros ou criar uma nova escala.</p>
+              <p>{searchTerm || filterMinistry !== 'all' || filterStatus !== 'all' ? 'Tente ajustar os filtros.' : 'Crie uma nova escala para começar.'}</p>
             </div>
           ) : (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 200px 120px 100px', gap: '1rem', padding: '1rem 1.5rem', backgroundColor: theme.colors.gray[50], borderBottom: `1px solid ${theme.colors.border}`, fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.secondary }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 200px 200px 100px', gap: '1rem', padding: '1rem 1.5rem', backgroundColor: theme.colors.gray[50], borderBottom: `1px solid ${theme.colors.border}`, fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.secondary }}>
                 <div>Celebração</div><div>Data</div><div>Horário</div><div>Ministério</div><div>Voluntários</div><div>Ações</div>
               </div>
               {filteredSchedules.map((schedule) => (
-                <div key={schedule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 200px 120px 100px', gap: '1rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.colors.border}`, alignItems: 'center' }}>
+                <div key={schedule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 200px 200px 100px', gap: '1rem', padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.colors.border}`, alignItems: 'center' }}>
                   <div>
                     <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.25rem' }}>{schedule.type}</h4>
                     <p style={{ fontSize: '0.75rem', color: theme.colors.text.secondary }}>Criado em {new Date(schedule.createdAt).toLocaleDateString('pt-BR')}</p>
                   </div>
                   <div style={{ fontSize: '0.875rem', color: theme.colors.text.primary }}>{formatDate(schedule.date)}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: theme.colors.text.primary }}><Clock size={14} />{schedule.time}</div>
-                  <div><span style={{ padding: '0.25rem 0.75rem', backgroundColor: `${mockMinistries.find(m => m.name === schedule.ministry)?.color}20`, color: mockMinistries.find(m => m.name === schedule.ministry)?.color, borderRadius: theme.borderRadius.md, fontSize: '0.75rem', fontWeight: '500' }}>{schedule.ministry}</span></div>
+                  <div><span style={{ padding: '0.25rem 0.75rem', backgroundColor: `${schedule.ministryColor}20`, color: schedule.ministryColor, borderRadius: theme.borderRadius.md, fontSize: '0.75rem', fontWeight: '500' }}>{schedule.ministry}</span></div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    {schedule.volunteers.slice(0, 2).map((volunteer: any) => (
+                    {schedule.volunteers.slice(0, 2).map((volunteer) => (
                       <div key={volunteer.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
                         <span style={{ color: getStatusColor(volunteer.status) }}>{getStatusIcon(volunteer.status)}</span>
                         <span style={{ color: theme.colors.text.secondary }}>{volunteer.name}</span>
@@ -654,20 +657,8 @@ export const ScheduleManagementPage: React.FC = () => {
             </div>
           )}
         </div>
-        
-        {/* Quick Actions Footer */}
-        <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm }}>
-          <div style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>Mostrando {filteredSchedules.length} escalas</div>
-          
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button style={{ padding: '0.5rem 1rem', backgroundColor: theme.colors.gray[100], border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.text.primary }}>Exportar Escalas</button>
-            {/* ATUALIZAÇÃO 3: Botão de Notificações REMOVIDO */}
-          </div>
-
-        </div>
       </div>
       
-      {/* Modal */}
       <CreateScheduleModal
         isOpen={showCreateModal}
         onClose={() => {
@@ -676,8 +667,17 @@ export const ScheduleManagementPage: React.FC = () => {
         }}
         schedule={selectedSchedule}
         onSave={handleSaveSchedule}
-        allowedMinistries={allowedMinistries} 
+        isSubmitting={isSubmitting} // <-- Passado para o modal
+        allMinistries={allMinistries.filter(m => m.isActive)}
+        allMembers={allMembers}
       />
+      
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
