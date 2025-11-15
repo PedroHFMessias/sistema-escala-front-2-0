@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Users, Calendar, Eye, EyeOff } from 'lucide-react';
-import { theme } from '../../styles/theme';
+// src/pages/management/MinistryManagementePage.tsx
 
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Edit, Trash2, Users, Calendar, Eye, EyeOff, Loader, AlertTriangle } from 'lucide-react';
+import { theme } from '../../styles/theme';
+import { api } from '../../services/api';
+
+// Interface do Ministério
 interface Ministry {
   id: string;
   name: string;
@@ -9,9 +13,10 @@ interface Ministry {
   color: string;
   membersCount: number;
   isActive: boolean;
-  createdAt: Date;
+  createdAt: string; // Datas vêm como strings ISO da API
 }
 
+// Interface do Formulário
 interface MinistryForm {
   name: string;
   description: string;
@@ -19,46 +24,11 @@ interface MinistryForm {
 }
 
 export const MinistryManagementPage: React.FC = () => {
-  const [ministries, setMinistries] = useState<Ministry[]>([
-    {
-      id: '1',
-      name: 'Coral',
-      description: 'Ministério responsável pelos cânticos durante as celebrações',
-      color: '#3b82f6',
-      membersCount: 12,
-      isActive: true,
-      createdAt: new Date('2024-01-15')
-    },
-    {
-      id: '2',
-      name: 'Leitores',
-      description: 'Responsáveis pelas leituras bíblicas durante as missas',
-      color: '#10b981',
-      membersCount: 8,
-      isActive: true,
-      createdAt: new Date('2024-01-20')
-    },
-    {
-      id: '3',
-      name: 'Ministros Extraordinários',
-      description: 'Auxílio na distribuição da Sagrada Comunhão',
-      color: '#f59e0b',
-      membersCount: 15,
-      isActive: true,
-      createdAt: new Date('2024-02-01')
-    },
-    {
-      id: '4',
-      name: 'Acólitos',
-      description: 'Serviço ao altar durante as celebrações',
-      color: '#8b5cf6',
-      membersCount: 6,
-      isActive: false,
-      createdAt: new Date('2024-02-10')
-    }
-  ]);
-
+  // Estados principais
+  const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estados de UI (Modal, Formulário)
   const [showModal, setShowModal] = useState(false);
   const [editingMinistry, setEditingMinistry] = useState<Ministry | null>(null);
   const [formData, setFormData] = useState<MinistryForm>({
@@ -67,6 +37,11 @@ export const MinistryManagementPage: React.FC = () => {
     color: '#3b82f6'
   });
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Estados de Feedback (Loading e Erro)
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Cores predefinidas para os ministérios
   const predefinedColors = [
@@ -82,14 +57,37 @@ export const MinistryManagementPage: React.FC = () => {
     '#6b7280'  // Cinza
   ];
 
+  // Função para carregar os ministérios da API
+  const loadMinistries = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const response = await api.get('/ministries');
+      setMinistries(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar ministérios:", error);
+      setApiError("Não foi possível carregar os ministérios. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Carregar os dados quando o componente montar
+  useEffect(() => {
+    loadMinistries();
+  }, []); // O array vazio [] garante que isto só executa uma vez
+
+  // Lógica de filtro
   const filteredMinistries = ministries.filter(ministry =>
     ministry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ministry.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Lógica de stats (agora baseia-se em dados reais)
   const activeMinistries = ministries.filter(m => m.isActive).length;
   const totalMembers = ministries.reduce((sum, m) => sum + m.membersCount, 0);
 
+  // Lógica de input
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -97,29 +95,21 @@ export const MinistryManagementPage: React.FC = () => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+    if (apiError) setApiError(null);
   };
 
+  // Lógica de validação
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Nome do ministério é obrigatório';
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Nome deve ter pelo menos 2 caracteres';
-    }
-
-    if (!formData.description.trim()) {
-      newErrors.description = 'Descrição é obrigatória';
-    } else if (formData.description.trim().length < 10) {
-      newErrors.description = 'Descrição deve ter pelo menos 10 caracteres';
-    }
-
-    // Verificar se já existe um ministério com esse nome (exceto o que está sendo editado)
+    if (!formData.name.trim()) newErrors.name = 'Nome do ministério é obrigatório';
+    else if (formData.name.trim().length < 2) newErrors.name = 'Nome deve ter pelo menos 2 caracteres';
+    if (!formData.description.trim()) newErrors.description = 'Descrição é obrigatória';
+    else if (formData.description.trim().length < 10) newErrors.description = 'Descrição deve ter pelo menos 10 caracteres';
+    
     const existingMinistry = ministries.find(m => 
       m.name.toLowerCase() === formData.name.trim().toLowerCase() && 
       m.id !== editingMinistry?.id
     );
-    
     if (existingMinistry) {
       newErrors.name = 'Já existe um ministério com esse nome';
     }
@@ -128,42 +118,52 @@ export const MinistryManagementPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Função de submit (chama a API)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
 
-    if (editingMinistry) {
-      // Editar ministério existente
-      setMinistries(prev => prev.map(ministry =>
-        ministry.id === editingMinistry.id
-          ? { ...ministry, ...formData, name: formData.name.trim(), description: formData.description.trim() }
-          : ministry
-      ));
-    } else {
-      // Criar novo ministério
-      const newMinistry: Ministry = {
-        id: Date.now().toString(),
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        color: formData.color,
-        membersCount: 0,
-        isActive: true,
-        createdAt: new Date()
-      };
-      setMinistries(prev => [...prev, newMinistry]);
-    }
+    setIsSubmitting(true);
+    setApiError(null);
 
-    resetForm();
+    const dataToSubmit = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      color: formData.color,
+    };
+
+    try {
+      if (editingMinistry) {
+        await api.put(`/ministries/${editingMinistry.id}`, dataToSubmit);
+      } else {
+        await api.post('/ministries', dataToSubmit);
+      }
+      
+      resetForm();
+      await loadMinistries(); // Recarrega a lista do backend
+
+    } catch (error: any) {
+      console.error("Erro ao salvar ministério:", error);
+      if (error.response && error.response.data && error.response.data.message) {
+        setApiError(error.response.data.message);
+      } else {
+        setApiError("Erro ao salvar. Tente novamente.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // Função de reset
   const resetForm = () => {
     setFormData({ name: '', description: '', color: '#3b82f6' });
     setEditingMinistry(null);
     setShowModal(false);
     setErrors({});
+    setApiError(null);
   };
 
+  // Função de edição
   const handleEdit = (ministry: Ministry) => {
     setEditingMinistry(ministry);
     setFormData({
@@ -174,7 +174,8 @@ export const MinistryManagementPage: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (id: string) => {
+  // Função de delete (chama a API)
+  const handleDelete = async (id: string) => {
     const ministry = ministries.find(m => m.id === id);
     if (ministry && ministry.membersCount > 0) {
       alert('Não é possível excluir um ministério que possui membros vinculados.');
@@ -182,20 +183,44 @@ export const MinistryManagementPage: React.FC = () => {
     }
     
     if (confirm('Tem certeza que deseja excluir este ministério?')) {
-      setMinistries(prev => prev.filter(m => m.id !== id));
+      try {
+        await api.delete(`/ministries/${id}`);
+        setMinistries(prev => prev.filter(m => m.id !== id));
+      } catch (error: any) {
+        console.error("Erro ao excluir ministério:", error);
+        if (error.response && error.response.data && error.response.data.message) {
+          alert(`Erro: ${error.response.data.message}`);
+        } else {
+          alert("Não foi possível excluir. Tente novamente.");
+        }
+      }
     }
   };
 
-  const toggleStatus = (id: string) => {
+  // Função de toggle (chama a API)
+  const toggleStatus = async (id: string) => {
+    // Salva o estado original para reverter em caso de erro
+    const originalMinistries = [...ministries];
+    
+    // Atualização otimista (muda na UI primeiro)
     setMinistries(prev => prev.map(ministry =>
       ministry.id === id
         ? { ...ministry, isActive: !ministry.isActive }
         : ministry
     ));
+
+    try {
+      await api.put(`/ministries/${id}/toggle-status`);
+    } catch (error) {
+      console.error("Erro ao alterar status:", error);
+      alert("Não foi possível alterar o status. A lista será revertida.");
+      // Reverte a alteração otimista em caso de falha
+      setMinistries(originalMinistries);
+    }
   };
 
   return (
-    <div style={{ padding: '2rem', minHeight: '100vh' }}>
+    <div style={{ padding: '2rem', minHeight: '100vh', backgroundColor: theme.colors.background }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: '2rem' }}>
@@ -221,6 +246,7 @@ export const MinistryManagementPage: React.FC = () => {
             gap: '1rem',
             marginBottom: '2rem'
           }}>
+            {/* Card Total */}
             <div style={{
               backgroundColor: theme.colors.white,
               padding: '1.5rem',
@@ -238,8 +264,8 @@ export const MinistryManagementPage: React.FC = () => {
                   <Users size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>
-                    {ministries.length}
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>
+                    {isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : ministries.length}
                   </p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
                     Total de Ministérios
@@ -248,6 +274,7 @@ export const MinistryManagementPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Card Ativos */}
             <div style={{
               backgroundColor: theme.colors.white,
               padding: '1.5rem',
@@ -265,8 +292,8 @@ export const MinistryManagementPage: React.FC = () => {
                   <Eye size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>
-                    {activeMinistries}
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>
+                    {isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : activeMinistries}
                   </p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
                     Ministérios Ativos
@@ -275,6 +302,7 @@ export const MinistryManagementPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Card Membros */}
             <div style={{
               backgroundColor: theme.colors.white,
               padding: '1.5rem',
@@ -292,8 +320,8 @@ export const MinistryManagementPage: React.FC = () => {
                   <Calendar size={20} />
                 </div>
                 <div>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary }}>
-                    {totalMembers}
+                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.colors.text.primary, height: '28px' }}>
+                    {isLoading ? <Loader size={20} style={{ animation: 'spin 1.5s linear infinite' }} /> : totalMembers}
                   </p>
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
                     Total de Membros
@@ -350,7 +378,7 @@ export const MinistryManagementPage: React.FC = () => {
 
           {/* Add Button */}
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { resetForm(); setShowModal(true); }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -377,190 +405,41 @@ export const MinistryManagementPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Ministry Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-          gap: '1.5rem'
-        }}>
-          {filteredMinistries.map((ministry) => (
-            <div
-              key={ministry.id}
+        {/* Container principal com Loading e Erro */}
+        
+        {/* Caso 1: Loading Inicial */}
+        {isLoading && (
+          <div style={{ textAlign: 'center', padding: '4rem', color: theme.colors.text.secondary }}>
+            <Loader size={48} style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 1rem' }} />
+            <p>A carregar ministérios...</p>
+          </div>
+        )}
+
+        {/* Caso 2: Erro Inicial */}
+        {!isLoading && apiError && filteredMinistries.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '4rem', backgroundColor: theme.colors.danger[50], color: theme.colors.danger[600], borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.danger[100]}` }}>
+            <AlertTriangle size={48} style={{ margin: '0 auto 1rem' }} />
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem' }}>Erro ao Carregar</h3>
+            <p>{apiError}</p>
+            <button 
+              onClick={loadMinistries}
               style={{
-                backgroundColor: theme.colors.white,
-                borderRadius: theme.borderRadius.lg,
-                border: `1px solid ${theme.colors.border}`,
-                boxShadow: theme.shadows.sm,
-                overflow: 'hidden',
-                transition: 'all 0.2s ease-in-out',
-                opacity: ministry.isActive ? 1 : 0.7
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = theme.shadows.md;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = theme.shadows.sm;
+                marginTop: '1rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: theme.colors.danger[500],
+                color: 'white',
+                border: 'none',
+                borderRadius: theme.borderRadius.md,
+                cursor: 'pointer'
               }}
             >
-              {/* Color Header */}
-              <div style={{
-                height: '4px',
-                backgroundColor: ministry.color
-              }}></div>
+              Recarregar
+            </button>
+          </div>
+        )}
 
-              {/* Card Content */}
-              <div style={{ padding: '1.5rem' }}>
-                {/* Header with Status */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '1rem'
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{
-                      fontSize: '1.25rem',
-                      fontWeight: '600',
-                      color: theme.colors.text.primary,
-                      marginBottom: '0.5rem'
-                    }}>
-                      {ministry.name}
-                    </h3>
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.25rem 0.75rem',
-                      borderRadius: theme.borderRadius.full,
-                      backgroundColor: ministry.isActive ? theme.colors.success[100] : theme.colors.gray[100],
-                      color: ministry.isActive ? theme.colors.success[500] : theme.colors.gray[700],
-                      fontSize: '0.75rem',
-                      fontWeight: '600'
-                    }}>
-                      {ministry.isActive ? <Eye size={12} /> : <EyeOff size={12} />}
-                      {ministry.isActive ? 'Ativo' : 'Inativo'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <p style={{
-                  color: theme.colors.text.secondary,
-                  fontSize: '0.875rem',
-                  lineHeight: '1.5',
-                  marginBottom: '1rem'
-                }}>
-                  {ministry.description}
-                </p>
-
-                {/* Stats */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  marginBottom: '1.5rem',
-                  padding: '0.75rem',
-                  backgroundColor: theme.colors.gray[50],
-                  borderRadius: theme.borderRadius.md
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Users size={16} color={theme.colors.text.secondary} />
-                    <span style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
-                      {ministry.membersCount} membros
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Calendar size={16} color={theme.colors.text.secondary} />
-                    <span style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
-                      Desde {ministry.createdAt.toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div style={{
-                  display: 'flex',
-                  gap: '0.75rem'
-                }}>
-                  <button
-                    onClick={() => toggleStatus(ministry.id)}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      backgroundColor: ministry.isActive ? theme.colors.warning[100] : theme.colors.success[100],
-                      color: ministry.isActive ? theme.colors.warning[500] : theme.colors.success[500],
-                      border: 'none',
-                      borderRadius: theme.borderRadius.md,
-                      fontSize: '0.75rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease-in-out',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    {ministry.isActive ? <EyeOff size={14} /> : <Eye size={14} />}
-                    {ministry.isActive ? 'Desativar' : 'Ativar'}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleEdit(ministry)}
-                    style={{
-                      padding: '0.5rem',
-                      backgroundColor: theme.colors.primary[100],
-                      color: theme.colors.primary[700],
-                      border: 'none',
-                      borderRadius: theme.borderRadius.md,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease-in-out'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = theme.colors.primary[200];
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = theme.colors.primary[100];
-                    }}
-                  >
-                    <Edit size={16} />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDelete(ministry.id)}
-                    disabled={ministry.membersCount > 0}
-                    style={{
-                      padding: '0.5rem',
-                      backgroundColor: ministry.membersCount > 0 ? theme.colors.gray[100] : theme.colors.danger[100],
-                      color: ministry.membersCount > 0 ? theme.colors.gray[400] : theme.colors.danger[500],
-                      border: 'none',
-                      borderRadius: theme.borderRadius.md,
-                      cursor: ministry.membersCount > 0 ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.2s ease-in-out'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (ministry.membersCount === 0) {
-                        e.currentTarget.style.backgroundColor = theme.colors.danger[200];
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (ministry.membersCount === 0) {
-                        e.currentTarget.style.backgroundColor = theme.colors.danger[100];
-                      }
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {filteredMinistries.length === 0 && (
+        {/* Caso 3: Sucesso, mas lista vazia (Empty State) */}
+        {!isLoading && !apiError && filteredMinistries.length === 0 && (
           <div style={{
             textAlign: 'center',
             padding: '4rem 2rem',
@@ -599,7 +478,7 @@ export const MinistryManagementPage: React.FC = () => {
             </p>
             {!searchTerm && (
               <button
-                onClick={() => setShowModal(true)}
+                onClick={() => { resetForm(); setShowModal(true); }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -619,6 +498,190 @@ export const MinistryManagementPage: React.FC = () => {
                 Criar Primeiro Ministério
               </button>
             )}
+          </div>
+        )}
+
+        {/* Caso 4: Sucesso, com dados (Ministry Cards) */}
+        {!isLoading && filteredMinistries.length > 0 && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            {filteredMinistries.map((ministry) => (
+              <div
+                key={ministry.id}
+                style={{
+                  backgroundColor: theme.colors.white,
+                  borderRadius: theme.borderRadius.lg,
+                  border: `1px solid ${theme.colors.border}`,
+                  boxShadow: theme.shadows.sm,
+                  overflow: 'hidden',
+                  transition: 'all 0.2s ease-in-out',
+                  opacity: ministry.isActive ? 1 : 0.7
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = theme.shadows.md;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = theme.shadows.sm;
+                }}
+              >
+                {/* Color Header */}
+                <div style={{
+                  height: '4px',
+                  backgroundColor: ministry.color
+                }}></div>
+
+                {/* Card Content */}
+                <div style={{ padding: '1.5rem' }}>
+                  {/* Header with Status */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '1rem'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{
+                        fontSize: '1.25rem',
+                        fontWeight: '600',
+                        color: theme.colors.text.primary,
+                        marginBottom: '0.5rem'
+                      }}>
+                        {ministry.name}
+                      </h3>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: theme.borderRadius.full,
+                        backgroundColor: ministry.isActive ? theme.colors.success[100] : theme.colors.gray[100],
+                        color: ministry.isActive ? theme.colors.success[500] : theme.colors.gray[700],
+                        fontSize: '0.75rem',
+                        fontWeight: '600'
+                      }}>
+                        {ministry.isActive ? <Eye size={12} /> : <EyeOff size={12} />}
+                        {ministry.isActive ? 'Ativo' : 'Inativo'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p style={{
+                    color: theme.colors.text.secondary,
+                    fontSize: '0.875rem',
+                    lineHeight: '1.5',
+                    marginBottom: '1rem'
+                  }}>
+                    {ministry.description}
+                  </p>
+
+                  {/* Stats */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    marginBottom: '1.5rem',
+                    padding: '0.75rem',
+                    backgroundColor: theme.colors.gray[50],
+                    borderRadius: theme.borderRadius.md
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Users size={16} color={theme.colors.text.secondary} />
+                      <span style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
+                        {ministry.membersCount} membros
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Calendar size={16} color={theme.colors.text.secondary} />
+                      <span style={{ fontSize: '0.875rem', color: theme.colors.text.secondary }}>
+                        Desde {new Date(ministry.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '0.75rem'
+                  }}>
+                    <button
+                      onClick={() => toggleStatus(ministry.id)}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        backgroundColor: ministry.isActive ? theme.colors.warning[100] : theme.colors.success[100],
+                        color: ministry.isActive ? theme.colors.warning[500] : theme.colors.success[500],
+                        border: 'none',
+                        borderRadius: theme.borderRadius.md,
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      {ministry.isActive ? <EyeOff size={14} /> : <Eye size={14} />}
+                      {ministry.isActive ? 'Desativar' : 'Ativar'}
+                    </button>
+                    
+                    <button
+                      onClick={() => handleEdit(ministry)}
+                      style={{
+                        padding: '0.5rem',
+                        backgroundColor: theme.colors.primary[100],
+                        color: theme.colors.primary[700],
+                        border: 'none',
+                        borderRadius: theme.borderRadius.md,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = theme.colors.primary[200];
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = theme.colors.primary[100];
+                      }}
+                    >
+                      <Edit size={16} />
+                    </button>
+                    
+                    <button
+                      onClick={() => handleDelete(ministry.id)}
+                      disabled={ministry.membersCount > 0}
+                      style={{
+                        padding: '0.5rem',
+                        backgroundColor: ministry.membersCount > 0 ? theme.colors.gray[100] : theme.colors.danger[100],
+                        color: ministry.membersCount > 0 ? theme.colors.gray[400] : theme.colors.danger[500],
+                        border: 'none',
+                        borderRadius: theme.borderRadius.md,
+                        cursor: ministry.membersCount > 0 ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (ministry.membersCount === 0) {
+                          e.currentTarget.style.backgroundColor = theme.colors.danger[200];
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (ministry.membersCount === 0) {
+                          e.currentTarget.style.backgroundColor = theme.colors.danger[100];
+                        }
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -654,6 +717,21 @@ export const MinistryManagementPage: React.FC = () => {
             }}>
               {editingMinistry ? 'Editar Ministério' : 'Novo Ministério'}
             </h2>
+
+            {/* Exibir erro da API no modal */}
+            {apiError && (
+              <div style={{
+                padding: '0.75rem 1rem',
+                backgroundColor: theme.colors.danger[50],
+                color: theme.colors.danger[600],
+                border: `1px solid ${theme.colors.danger[100]}`,
+                borderRadius: theme.borderRadius.md,
+                marginBottom: '1rem',
+                fontSize: '0.875rem'
+              }}>
+                {apiError}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Nome */}
@@ -820,25 +898,27 @@ export const MinistryManagementPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    backgroundColor: theme.colors.primary[500],
+                    backgroundColor: isSubmitting ? theme.colors.gray[400] : theme.colors.primary[500],
                     color: theme.colors.white,
                     border: 'none',
                     borderRadius: theme.borderRadius.md,
                     fontSize: '0.875rem',
                     fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s ease-in-out'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.colors.primary[600];
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.colors.primary[500];
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    transition: 'background-color 0.2s ease-in-out',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
                   }}
                 >
-                  {editingMinistry ? 'Salvar Alterações' : 'Criar Ministério'}
+                  {isSubmitting && <Loader size={16} style={{ animation: 'spin 1.5s linear infinite' }} />}
+                  {isSubmitting 
+                    ? (editingMinistry ? 'A salvar...' : 'A criar...')
+                    : (editingMinistry ? 'Salvar Alterações' : 'Criar Ministério')
+                  }
                 </button>
               </div>
             </form>
@@ -860,6 +940,14 @@ export const MinistryManagementPage: React.FC = () => {
           }}
         />
       )}
+
+      {/* CSS para a animação de spin */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
