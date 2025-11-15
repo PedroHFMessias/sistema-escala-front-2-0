@@ -13,7 +13,7 @@ import {
   ChevronDown,
   Shield,   
   FileText 
-} from 'lucide-react'; // ATUALIZAÇÃO 1: Removido 'User' que não era usado
+} from 'lucide-react';
 import { theme } from '../../styles/theme';
 import { ChurchIcon } from '../ui/ChurchIcon';
 import { useAuth } from '../../context/AuthContext';
@@ -22,8 +22,8 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-// ATUALIZAÇÃO 2: Definido o tipo de papel
-type UserRole = 'director' | 'coordinator' | 'volunteer' | 'both';
+// ⬇️ --- ATUALIZAÇÃO 1: Papéis em MAIÚSCULAS --- ⬇️
+type UserRole = 'DIRECTOR' | 'COORDINATOR' | 'VOLUNTEER' | 'both';
 
 interface NavigationItem {
   id: string;
@@ -41,19 +41,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { userRole, logout } = useAuth();
+  // ⬇️ --- ATUALIZAÇÃO 2: Puxar o objeto 'user' completo --- ⬇️
+  const { user, userRole, logout } = useAuth();
 
-  // ATUALIZAÇÃO 3: Lógica de simulação de nomes CORRIGIDA
-  const userName = userRole === 'director' ? 'Sr. Diretor' : (userRole === 'coordinator' ? 'João Silva' : 'Maria Souza');
-  const userEmail = userRole === 'director' ? 'diretor@paroquia.com' : (userRole === 'coordinator' ? 'joao.silva@paroquia.com' : 'maria.souza@paroquia.com');
-  
-  // ATUALIZAÇÃO 4: Corrigido o erro de 'any' implícito (n => n[0])
+  // ⬇️ --- ATUALIZAÇÃO 3: Usar dados reais do utilizador --- ⬇️
+  const userName = user?.name || 'Utilizador';
+  const userEmail = user?.email || 'email@paroquia.com';
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
 
-  // ATUALIZAÇÃO 5: Lógica de tradução CORRIGIDA
-  const userRoleInPortuguese = userRole === 'director' ? 'Diretor' : (userRole === 'coordinator' ? 'Coordenador' : 'Voluntário');
+  // ⬇️ --- ATUALIZAÇÃO 4: Lógica de tradução com MAIÚSCULAS --- ⬇️
+  const userRoleInPortuguese = userRole === 'DIRECTOR' ? 'Diretor' : (userRole === 'COORDINATOR' ? 'Coordenador' : 'Voluntário');
 
-  // ATUALIZAÇÃO 6: Itens de navegação CORRIGIDOS (com ícones certos)
+  // ⬇️ --- ATUALIZAÇÃO 5: Itens de navegação com MAIÚSCULAS --- ⬇️
   const navigationItems: NavigationItem[] = [
     { id: 'home', label: 'Início', icon: <Home size={20} />, path: '/', role: 'both' },
     {
@@ -61,10 +60,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: 'Cadastros',
       icon: <Users size={20} />,
       path: '/cadastros',
-      role: 'coordinator',
+      role: 'COORDINATOR', // Atualizado
       subItems: [
-        { id: 'ministerios', label: 'Ministérios', icon: <Shield size={16} />, path: '/cadastros/ministerios', role: 'director' },
-        { id: 'membros', label: 'Membros', icon: <UserCheck size={16} />, path: '/cadastros/membros', role: 'coordinator' },
+        { id: 'ministerios', label: 'Ministérios', icon: <Shield size={16} />, path: '/cadastros/ministerios', role: 'DIRECTOR' }, // Atualizado
+        { id: 'membros', label: 'Membros', icon: <UserCheck size={16} />, path: '/cadastros/membros', role: 'COORDINATOR' }, // Atualizado
       ],
     },
     {
@@ -73,34 +72,32 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <Calendar size={20} />,
       path: '/escalas',
       role: 'both',
-      subItems: (userRole === 'coordinator' || userRole === 'director')
+      subItems: (userRole === 'COORDINATOR' || userRole === 'DIRECTOR')
         ? [
-            { id: 'gerenciar-escalas', label: 'Gerenciar Escalas', icon: <Settings size={16} />, path: '/escalas/gerenciar', role: 'coordinator' },
+            { id: 'gerenciar-escalas', label: 'Gerenciar Escalas', icon: <Settings size={16} />, path: '/escalas/gerenciar', role: 'COORDINATOR' }, // Atualizado
             { id: 'visualizar-escalas', label: 'Visualizar Escalas', icon: <Calendar size={16} />, path: '/escalas', role: 'both' },
           ]
         : [
-            { id: 'minhas-escalas', label: 'Minhas Escalas', icon: <Calendar size={16} />, path: '/minhas-escalas', role: 'volunteer' },
+            { id: 'minhas-escalas', label: 'Minhas Escalas', icon: <Calendar size={16} />, path: '/minhas-escalas', role: 'VOLUNTEER' }, // Atualizado
             { id: 'visualizar-escalas', label: 'Todas as Escalas', icon: <Calendar size={16} />, path: '/escalas', role: 'both' },
           ],
     },
-    // Adicionado 'FileText' que estava faltando
-    { id: 'relatorios', label: 'Relatórios', icon: <FileText size={20} />, path: '/relatorios', role: 'coordinator' },
-    { id: 'confirmacoes', label: 'Confirmações', icon: <UserCheck size={20} />, path: '/confirmacoes', role: 'volunteer' },
+    { id: 'relatorios', label: 'Relatórios', icon: <FileText size={20} />, path: '/relatorios', role: 'COORDINATOR' }, // Atualizado
+    { id: 'confirmacoes', label: 'Confirmações', icon: <UserCheck size={20} />, path: '/confirmacoes', role: 'VOLUNTEER' }, // Atualizado
   ];
 
-  // Filtro de navegação (está correto)
+  // ⬇️ --- ATUALIZAÇÃO 6: Filtro com MAIÚSCULAS --- ⬇️
   const filteredNavigation = navigationItems.filter(item => {
-    if (userRole === 'director') {
-      return item.role === 'director' || item.role === 'coordinator' || item.role === 'both';
+    if (userRole === 'DIRECTOR') {
+      return item.role === 'DIRECTOR' || item.role === 'COORDINATOR' || item.role === 'both';
     }
-    return item.role === 'both' || item.role === userRole;
+    return item.role === 'both' || (userRole !== null && item.role === userRole);
   });
 
   const toggleSubmenu = (itemId: string) => {
     setExpandedMenus(prev => (prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]));
   };
 
-  // Lógica de rota ativa (ajustada para não bugar /escalas)
   const isActiveRoute = (path: string): boolean => {
     if (path === '/escalas') {
       return location.pathname === '/escalas';
@@ -111,7 +108,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleNavigation = (path: string) => {
     navigate(path);
     if(sidebarOpen) setSidebarOpen(false);
-    setUserMenuOpen(false); // Fecha o menu de usuário
+    setUserMenuOpen(false);
   };
 
   const handleLogout = () => {
@@ -129,6 +126,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         zIndex: 1000, boxShadow: sidebarOpen ? theme.shadows.lg : 'none',
         display: 'flex', flexDirection: 'column'
       }}>
+        {/* (O resto do JSX da Sidebar não muda, apenas o filtro do subItem) */}
+        
         <div style={{ padding: '1rem', borderBottom: `1px solid ${theme.colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div onClick={() => handleNavigation('/')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: theme.colors.primary[500], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -155,14 +154,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </div>
                 {item.subItems && (<ChevronDown size={16} style={{ transform: expandedMenus.includes(item.id) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease-in-out' }} />)}
               </div>
+              
+              {/* ⬇️ --- ATUALIZAÇÃO 7: Filtro do Submenu com MAIÚSCULAS --- ⬇️ */}
               {item.subItems && expandedMenus.includes(item.id) && (
                 <div style={{ paddingLeft: '1rem' }}>
                   {item.subItems
                     .filter(subItem => { 
-                      if (userRole === 'director') {
-                        return subItem.role === 'director' || subItem.role === 'coordinator' || subItem.role === 'both';
+                      if (userRole === 'DIRECTOR') {
+                        return subItem.role === 'DIRECTOR' || subItem.role === 'COORDINATOR' || subItem.role === 'both';
                       }
-                      return subItem.role === 'both' || subItem.role === userRole;
+                      return subItem.role === 'both' || (userRole !== null && subItem.role === userRole);
                     })
                     .map((subItem) => (
                       <div key={subItem.id} onClick={() => handleNavigation(subItem.path)}
@@ -180,6 +181,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </nav>
       </div>
 
+      {/* (O resto do JSX não muda, apenas a Navbar) */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', transition: 'padding-left 0.3s ease-in-out', paddingLeft: '0' }}>
         {/* Barra de Navegação Superior */}
         <div style={{ backgroundColor: theme.colors.white, borderBottom: `1px solid ${theme.colors.border}`, padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -193,6 +195,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
           </div>
 
+          {/* ⬇️ --- ATUALIZAÇÃO 8: Navbar usa dados reais --- ⬇️ */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ position: 'relative' }}>
               <button onClick={() => setUserMenuOpen(!userMenuOpen)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', border: 'none', borderRadius: theme.borderRadius.md, backgroundColor: 'transparent', cursor: 'pointer' }}>
@@ -214,8 +217,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <p style={{ fontSize: '0.75rem', color: theme.colors.text.secondary }}>{userEmail}</p>
                   </div>
                   
-                  {/* Bloco "Meu Perfil" REMOVIDO */}
-
                   <div style={{ padding: '0.5rem' }}>
                     <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.5rem', border: 'none', borderRadius: theme.borderRadius.md, backgroundColor: 'transparent', cursor: 'pointer', fontSize: '0.875rem', color: theme.colors.danger[600] }}>
                       <LogOut size={16} />

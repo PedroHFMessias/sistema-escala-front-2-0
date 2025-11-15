@@ -8,7 +8,7 @@ import { LoginPage } from '../pages/auth/LoginPage';
 // Coordinator Pages
 import { MinistryManagementPage } from '../pages/management/MinistryManagementePage';
 import { MemberManagementPage } from '../pages/management/MemberManagementPage';
-import { ReportsPage } from '../pages/management/ReportsPage'; // Adicionar ReportsPage
+import { ReportsPage } from '../pages/management/ReportsPage';
 
 // Volunteer Pages
 import { VolunteerSchedulePage } from '../pages/volunteer/VolunteerSchedulePage';
@@ -16,35 +16,32 @@ import { VolunteerConfirmationPage } from '../pages/volunteer/VolunteerConfirmat
 
 // Shared Pages
 import { ScheduleManagementPage } from '../pages/management/ScheduleManagementPage';
-import { ScheduleViewPage } from '../pages/shared/ScheduleViewPage'; // Adicionar ScheduleViewPage
+import { ScheduleViewPage } from '../pages/shared/ScheduleViewPage';
 
-import { useAuth } from '../context/AuthContext'; // Importar useAuth
+import { useAuth } from '../context/AuthContext'; 
 
-// ATUALIZAÇÃO 1: Definir o tipo de papel
-type UserRole = 'director' | 'coordinator' | 'volunteer';
+// ⬇️ --- ATUALIZAÇÃO 1: Papéis em MAIÚSCULAS --- ⬇️
+type UserRole = 'DIRECTOR' | 'COORDINATOR' | 'VOLUNTEER';
 
 // Protected Route Component
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  // ATUALIZAÇÃO 2: Aceitar um array de papéis
   requiredRoles?: UserRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRoles }) => {
-  const { isAuthenticated, userRole } = useAuth(); // Obter do contexto
+  // Agora 'userRole' vem do contexto como 'DIRECTOR', 'COORDINATOR', etc.
+  const { isAuthenticated, userRole } = useAuth(); 
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // ATUALIZAÇÃO 3: Nova lógica de verificação de papel
-  // Se a rota exige papéis específicos E o papel do usuário não está incluído...
+  // A lógica de verificação de papel está correta
   if (requiredRoles && userRole && !requiredRoles.includes(userRole)) {
-    // Redireciona para a home. A HomePage se adaptará ao papel.
     return <Navigate to="/" replace />;
   }
 
-  // Se passou em ambas as verificações, renderiza a rota
   return <>{children}</>;
 };
 
@@ -64,12 +61,11 @@ export const AppRouter: React.FC = () => {
           </ProtectedRoute>
         } />
 
-        {/* ATUALIZAÇÃO 4: Reorganização das rotas baseada nos novos papéis
-        */}
+        {/* ⬇️ --- ATUALIZAÇÃO 2: Papéis em MAIÚSCULAS --- ⬇️ */}
 
         {/* Rotas do Diretor (Acesso mais alto) */}
         <Route path="/cadastros/ministerios" element={
-          <ProtectedRoute requiredRoles={['director']}>
+          <ProtectedRoute requiredRoles={['DIRECTOR']}>
             <Layout>
               <MinistryManagementPage />
             </Layout>
@@ -78,7 +74,7 @@ export const AppRouter: React.FC = () => {
 
         {/* Rotas do Diretor e Coordenador */}
         <Route path="/cadastros/membros" element={
-          <ProtectedRoute requiredRoles={['director', 'coordinator']}>
+          <ProtectedRoute requiredRoles={['DIRECTOR', 'COORDINATOR']}>
             <Layout>
               <MemberManagementPage />
             </Layout>
@@ -86,7 +82,7 @@ export const AppRouter: React.FC = () => {
         } />
 
         <Route path="/relatorios" element={
-          <ProtectedRoute requiredRoles={['director', 'coordinator']}>
+          <ProtectedRoute requiredRoles={['DIRECTOR', 'COORDINATOR']}>
             <Layout>
               <ReportsPage />
             </Layout>
@@ -94,16 +90,15 @@ export const AppRouter: React.FC = () => {
         } />
 
         <Route path="/escalas/gerenciar" element={
-          <ProtectedRoute requiredRoles={['director', 'coordinator']}>
+          <ProtectedRoute requiredRoles={['DIRECTOR', 'COORDINATOR']}>
             <Layout>
               <ScheduleManagementPage />
             </Layout>
           </ProtectedRoute>
         } />
         
-        {/* Rota "Cadastros" principal redireciona (Diretor vai para ministérios, Coordenador para membros) */}
         <Route path="/cadastros" element={
-          <ProtectedRoute requiredRoles={['director', 'coordinator']}>
+          <ProtectedRoute requiredRoles={['DIRECTOR', 'COORDINATOR']}>
             <Layout>
               <RoleBasedRedirect />
             </Layout>
@@ -112,7 +107,7 @@ export const AppRouter: React.FC = () => {
 
         {/* Volunteer Routes */}
         <Route path="/minhas-escalas" element={
-          <ProtectedRoute requiredRoles={['volunteer']}>
+          <ProtectedRoute requiredRoles={['VOLUNTEER']}>
             <Layout>
               <VolunteerSchedulePage />
             </Layout>
@@ -120,7 +115,7 @@ export const AppRouter: React.FC = () => {
         } />
 
         <Route path="/confirmacoes" element={
-          <ProtectedRoute requiredRoles={['volunteer']}>
+          <ProtectedRoute requiredRoles={['VOLUNTEER']}>
             <Layout>
               <VolunteerConfirmationPage />
             </Layout>
@@ -145,14 +140,14 @@ export const AppRouter: React.FC = () => {
 
 // Componente auxiliar para redirecionar /cadastros
 const RoleBasedRedirect: React.FC = () => {
-  const { userRole } = useAuth();
+  const { userRole } = useAuth(); // userRole aqui será 'DIRECTOR' ou 'COORDINATOR'
   
-  if (userRole === 'director') {
+  if (userRole === 'DIRECTOR') {
     return <Navigate to="/cadastros/ministerios" replace />;
   }
-  if (userRole === 'coordinator') {
+  if (userRole === 'COORDINATOR') {
     return <Navigate to="/cadastros/membros" replace />;
   }
-  // Fallback, embora o ProtectedRoute já deva barrar
+  // Fallback
   return <Navigate to="/" replace />;
 };

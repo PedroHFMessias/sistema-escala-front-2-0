@@ -1,15 +1,25 @@
-// src/context/AuthContext.tsx
-import { createContext, useContext, useState, type ReactNode } from 'react';
+// src/context/AuthContext.tsx (Frontend)
+import { createContext, useContext, useState, type ReactNode, useEffect } from 'react';
+import { api } from '../services/api'; 
 
-// ATUALIZAÇÃO 1: Definir os tipos de usuário
-type UserRole = 'director' | 'coordinator' | 'volunteer';
+type UserRole = 'DIRECTOR' | 'COORDINATOR' | 'VOLUNTEER';
 
-// ATUALIZAÇÃO 2: Simplificar o Contexto para usar apenas userRole
+// ⬇️ --- CORREÇÃO AQUI --- ⬇️
+interface User {
+  id: string;
+  name: string;
+  email: string; // <-- ADICIONADO
+  role: UserRole;
+}
+// ⬆️ --- FIM DA CORREÇÃO --- ⬆️
+
 interface AuthContextType {
+  user: User | null;
   userRole: UserRole | null;
-  login: (role: UserRole) => void;
+  login: (email: string, password: string) => Promise<void>; 
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,33 +37,68 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  // ATUALIZAÇÃO 3: Armazenar apenas a STRING do papel
-  const [userRole, setUserRole] = useState<UserRole | null>(() => {
-    // Usando localStorage para persistência (sugestão anterior)
-    return localStorage.getItem('userRole') as UserRole | null;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ATUALIZAÇÃO 4: Login recebe apenas a string 'role'
-  const login = (role: UserRole) => {
-    localStorage.setItem('userRole', role);
-    setUserRole(role);
-    console.log(`Usuário logado como: ${role}`);
+  useEffect(() => {
+    const loadUser = async () => {
+      const token = localStorage.getItem('authToken');
+      
+      if (token) {
+        try {
+          const response = await api.get('/auth/me'); 
+          setUser(response.data);
+        } catch (error) {
+          console.error("Token inválido, a fazer logout:", error);
+          logout();
+        }
+      }
+      setIsLoading(false);
+    };
+    
+    loadUser();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await api.post('/auth/login', {
+        email,
+        password,
+      });
+
+      const { token, user: userData } = response.data;
+
+      localStorage.setItem('authToken', token);
+      setUser(userData);
+      
+    } catch (error) {
+      console.error("Erro no login:", error);
+      throw error; 
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem('userRole');
-    setUserRole(null);
-    console.log('Usuário deslogado');
+    localStorage.removeItem('authToken');
+    setUser(null);
   };
 
-  const isAuthenticated = userRole !== null;
+  const isAuthenticated = user !== null;
 
-  const value = {
-    userRole,
+  const value: AuthContextType = {
+    user,
+    userRole: user?.role || null,
     login,
     logout,
     isAuthenticated,
+    isLoading,
   };
+
+  if (isLoading) {
+    return <div>A carregar sessão...</div>; 
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

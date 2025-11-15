@@ -1,12 +1,13 @@
 // src/pages/home/HomePage.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // 1. Importa useEffect
 import { useNavigate } from 'react-router-dom';
-import { Users, Calendar, UserCheck, Settings, ChevronDown, FileText, Shield } from 'lucide-react';
+import { Users, Calendar, UserCheck, Settings, ChevronDown, FileText, Shield, Loader } from 'lucide-react'; // 2. Importa Loader
 import { theme } from '../../styles/theme';
-
 import { useAuth } from '../../context/AuthContext'; 
+import { api } from '../../services/api'; // 3. Importa a API
 
-type UserRole = 'director' | 'coordinator' | 'volunteer' | 'both';
+// ... (interfaces MenuOption, SubMenuItem, UserRole - sem alterações) ...
+type UserRole = 'DIRECTOR' | 'COORDINATOR' | 'VOLUNTEER' | 'both';
 
 interface MenuOption {
   id: string;
@@ -29,12 +30,50 @@ interface SubMenuItem {
   role: UserRole;
 }
 
+// 4. Interface para os stats (números)
+interface DashboardStats {
+  voluntariosAtivos?: number;
+  escalasPendentes?: number;
+  confirmacoesHoje?: number;
+  proximasEscalas?: number;
+  pendenteConfirmacao?: number;
+}
+
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { userRole } = useAuth(); 
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  
+  // 5. Estado para os stats
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // ATUALIZAÇÃO 1: Descrição do submenu "Membros" agora é dinâmica
+  // 6. useEffect para buscar os stats da API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setIsLoadingStats(true);
+        const response = await api.get('/dashboard/summary');
+        setStats(response.data);
+      } catch (error) {
+        console.error("Erro ao buscar stats do dashboard:", error);
+        // Define stats como 0 em caso de erro
+        setStats(
+          userRole === 'VOLUNTEER' 
+            ? { proximasEscalas: 0, pendenteConfirmacao: 0 }
+            : { voluntariosAtivos: 0, escalasPendentes: 0, confirmacoesHoje: 0 }
+        );
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, [userRole]); // Recarrega se o papel do utilizador mudar
+
+  // ... (Definições de cadastrosSubmenu, escalasSubmenu, menuOptions, filteredOptions - sem alterações) ...
+  // (Copie as definições que já corrigimos na resposta anterior)
   const cadastrosSubmenu: SubMenuItem[] = [
     {
       id: 'ministerios',
@@ -42,27 +81,26 @@ export const HomePage: React.FC = () => {
       description: 'Gerenciar ministérios da paróquia',
       icon: <Shield size={20} />,
       path: '/cadastros/ministerios',
-      role: 'director'
+      role: 'DIRECTOR'
     },
     {
       id: 'membros',
       title: 'Membros',
-      // Texto corrigido com base no userRole
-      description: userRole === 'director' ? 'Gerenciar voluntários e coordenadores' : 'Gerenciar voluntários',
+      description: userRole === 'DIRECTOR' ? 'Gerenciar voluntários e coordenadores' : 'Gerenciar voluntários',
       icon: <UserCheck size={20} />,
       path: '/cadastros/membros',
-      role: 'coordinator'
+      role: 'COORDINATOR'
     }
   ];
 
-  const escalasSubmenu: SubMenuItem[] = (userRole === 'coordinator' || userRole === 'director') ? [
+  const escalasSubmenu: SubMenuItem[] = (userRole === 'COORDINATOR' || userRole === 'DIRECTOR') ? [
     {
       id: 'gerenciar-escalas',
       title: 'Gerenciar Escalas',
       icon: <Settings size={20} />,
       path: '/escalas/gerenciar',
       description: 'Criar e editar escalas',
-      role: 'coordinator'
+      role: 'COORDINATOR'
     },
     {
       id: 'visualizar-escalas',
@@ -79,7 +117,7 @@ export const HomePage: React.FC = () => {
       description: 'Ver minhas escalas',
       icon: <Calendar size={20} />,
       path: '/minhas-escalas',
-      role: 'volunteer'
+      role: 'VOLUNTEER'
     },
     {
       id: 'visualizar-escalas',
@@ -95,24 +133,22 @@ export const HomePage: React.FC = () => {
     {
       id: 'cadastros',
       title: 'Cadastros',
-      // ATUALIZAÇÃO 2: Descrição do card principal "Cadastros" agora é dinâmica
-      description: userRole === 'director' ? 'Gerenciar ministérios e membros' : 'Gerenciar voluntários',
+      description: userRole === 'DIRECTOR' ? 'Gerenciar ministérios e membros' : 'Gerenciar voluntários',
       icon: <Users size={32} />,
       color: theme.colors.primary[500],
-      role: 'coordinator',
+      role: 'COORDINATOR',
       hasSubmenu: true,
-      // Filtra os sub-itens baseado no papel
       submenuItems: cadastrosSubmenu.filter(subItem => {
-          if (userRole === 'director') {
-            return subItem.role === 'director' || subItem.role === 'coordinator' || subItem.role === 'both';
+          if (userRole === 'DIRECTOR') {
+            return subItem.role === 'DIRECTOR' || subItem.role === 'COORDINATOR' || subItem.role === 'both';
           }
-          return subItem.role === 'both' || subItem.role === userRole;
+          return subItem.role === 'both' || (userRole !== null && subItem.role === userRole);
       })
     },
     {
       id: 'escalas',
       title: 'Escalas',
-      description: (userRole === 'coordinator' || userRole === 'director') ? 'Criar e gerenciar escalas das missas' : 'Visualizar e confirmar suas escalas',
+      description: (userRole === 'COORDINATOR' || userRole === 'DIRECTOR') ? 'Criar e gerenciar escalas das missas' : 'Visualizar e confirmar suas escalas',
       icon: <Calendar size={32} />,
       color: theme.colors.secondary[500],
       role: 'both',
@@ -125,7 +161,7 @@ export const HomePage: React.FC = () => {
       description: 'Ver dados e estatísticas das escalas',
       icon: <FileText size={32} />,
       color: theme.colors.success[500], 
-      role: 'coordinator',
+      role: 'COORDINATOR',
       path: '/relatorios',
       hasSubmenu: false,
     },
@@ -135,19 +171,18 @@ export const HomePage: React.FC = () => {
       description: 'Visualizar as escalas confirmadas',
       icon: <UserCheck size={32} />,
       color: theme.colors.success[500],
-      role: 'volunteer',
+      role: 'VOLUNTEER',
       path: '/confirmacoes',
       hasSubmenu: false,
     }
   ];
 
-  // Lógica de filtro principal (a mesma do Layout.tsx)
   const filteredOptions = menuOptions.filter(
     option => {
-      if (userRole === 'director') {
-        return option.role === 'director' || option.role === 'coordinator' || option.role === 'both';
+      if (userRole === 'DIRECTOR') {
+        return option.role === 'DIRECTOR' || option.role === 'COORDINATOR' || option.role === 'both';
       }
-      return option.role === 'both' || option.role === userRole;
+      return option.role === 'both' || (userRole !== null && option.role === userRole);
     }
   );
 
@@ -163,11 +198,21 @@ export const HomePage: React.FC = () => {
     navigate(path);
     setOpenSubmenu(null);
   };
+  
+  // 7. Componente de Loading para os stats
+  const StatNumber: React.FC<{ value?: number }> = ({ value }) => {
+    if (isLoadingStats) {
+      return (
+        <Loader size={20} style={{ animation: 'spin 1s linear infinite' }} />
+      );
+    }
+    return <>{value ?? 0}</>;
+  };
 
   return (
     <div style={{ padding: '2rem', minHeight: '100vh' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-        {/* Header Section */}
+        {/* Header Section (sem alterações) */}
         <div style={{
           textAlign: 'center',
           marginBottom: '4rem'
@@ -191,25 +236,26 @@ export const HomePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Main Content - Two Column Layout */}
+        {/* Main Content - Two Column Layout (sem alterações) */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: (userRole === 'coordinator' || userRole === 'director') ? '2fr 1fr' : '1fr 1fr',
+          gridTemplateColumns: (userRole === 'COORDINATOR' || userRole === 'DIRECTOR') ? '2fr 1fr' : '1fr 1fr',
           gap: '4rem',
           alignItems: 'start'
         }}>
 
-          {/* Left Side - Menu Grid */}
+          {/* Left Side - Menu Grid (sem alterações) */}
           <div>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: (userRole === 'coordinator' || userRole ==='director') ? 'repeat(auto-fit, minmax(280px, 1fr))' : 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: (userRole === 'COORDINATOR' || userRole ==='DIRECTOR') ? 'repeat(auto-fit, minmax(280px, 1fr))' : 'repeat(auto-fit, minmax(280px, 1fr))',
               gap: '1.5rem',
               position: 'relative'
             }}>
               {filteredOptions.map((option) => (
                 <div key={option.id} style={{ position: 'relative' }}>
-                  <div
+                  {/* (Todo o JSX dos cartões de menu e submenus permanece o mesmo) */}
+                   <div
                     onClick={() => handleOptionClick(option)}
                     style={{
                       backgroundColor: theme.colors.white,
@@ -240,7 +286,6 @@ export const HomePage: React.FC = () => {
                     }}
                   >
                     
-                    {/* Background Pattern */}
                     <div style={{
                       position: 'absolute',
                       top: 0,
@@ -251,7 +296,6 @@ export const HomePage: React.FC = () => {
                       borderRadius: '0 0 0 80px'
                     }}></div>
 
-                    {/* Icon */}
                     <div
                       style={{
                         padding: '1.5rem',
@@ -268,7 +312,6 @@ export const HomePage: React.FC = () => {
                       {option.icon}
                     </div>
 
-                    {/* Content */}
                     <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
                       <h3 style={{
                         fontSize: '1.25rem',
@@ -287,7 +330,6 @@ export const HomePage: React.FC = () => {
                       </p>
                     </div>
 
-                    {/* Arrow indicator ou Submenu indicator */}
                     <div style={{
                       width: '40px',
                       height: '40px',
@@ -394,7 +436,7 @@ export const HomePage: React.FC = () => {
 
           {/* Right Side - Info Panel */}
           <div>
-            {/* Quick Stats */}
+            {/* 8. ATUALIZAÇÃO: Quick Stats agora usam os dados da API */}
             <div style={{
               backgroundColor: theme.colors.white,
               borderRadius: theme.borderRadius.xl,
@@ -414,7 +456,7 @@ export const HomePage: React.FC = () => {
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {(userRole === 'coordinator' || userRole === 'director') ? (
+                {(userRole === 'COORDINATOR' || userRole === 'DIRECTOR') ? (
                   <>
                     <div style={{
                       display: 'flex',
@@ -438,9 +480,10 @@ export const HomePage: React.FC = () => {
                           fontSize: '1.25rem',
                           fontWeight: '700',
                           color: theme.colors.primary[600],
-                          marginBottom: '0.25rem'
+                          marginBottom: '0.25rem',
+                          height: '24px' // Altura fixa para evitar "pulos"
                         }}>
-                          24
+                          <StatNumber value={stats?.voluntariosAtivos} />
                         </p>
                         <p style={{
                           fontSize: '0.75rem',
@@ -473,9 +516,10 @@ export const HomePage: React.FC = () => {
                           fontSize: '1.25rem',
                           fontWeight: '700',
                           color: theme.colors.secondary[600],
-                          marginBottom: '0.25rem'
+                          marginBottom: '0.25rem',
+                          height: '24px'
                         }}>
-                          7
+                          <StatNumber value={stats?.escalasPendentes} />
                         </p>
                         <p style={{
                           fontSize: '0.75rem',
@@ -508,9 +552,10 @@ export const HomePage: React.FC = () => {
                           fontSize: '1.25rem',
                           fontWeight: '700',
                           color: theme.colors.success[600],
-                          marginBottom: '0.25rem'
+                          marginBottom: '0.25rem',
+                          height: '24px'
                         }}>
-                          18
+                          <StatNumber value={stats?.confirmacoesHoje} />
                         </p>
                         <p style={{
                           fontSize: '0.75rem',
@@ -545,9 +590,10 @@ export const HomePage: React.FC = () => {
                           fontSize: '1.25rem',
                           fontWeight: '700',
                           color: theme.colors.primary[600],
-                          marginBottom: '0.25rem'
+                          marginBottom: '0.25rem',
+                          height: '24px'
                         }}>
-                          3
+                          <StatNumber value={stats?.proximasEscalas} />
                         </p>
                         <p style={{
                           fontSize: '0.75rem',
@@ -580,9 +626,10 @@ export const HomePage: React.FC = () => {
                           fontSize: '1.25rem',
                           fontWeight: '700',
                           color: theme.colors.warning[600],
-                          marginBottom: '0.25rem'
+                          marginBottom: '0.25rem',
+                          height: '24px'
                         }}>
-                          1
+                          <StatNumber value={stats?.pendenteConfirmacao} />
                         </p>
                         <p style={{
                           fontSize: '0.75rem',
@@ -596,16 +643,11 @@ export const HomePage: React.FC = () => {
                 )}
               </div>
             </div>
-
-            {/* Recent Activity (Ocultado para brevidade, sem alterações) */}
-            
-            {/* Church Info (Ocultado para brevidade, sem alterações) */}
-
           </div>
         </div>
       </div>
 
-      {/* Overlay para fechar submenu quando clicar fora */}
+      {/* Overlay (sem alterações) */}
       {openSubmenu && (
         <div
           onClick={() => setOpenSubmenu(null)}
@@ -619,6 +661,14 @@ export const HomePage: React.FC = () => {
           }}
         />
       )}
+      
+      {/* 9. Animação de spin para o Loader */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
