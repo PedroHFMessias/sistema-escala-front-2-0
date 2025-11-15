@@ -1,3 +1,4 @@
+// src/pages/shared/ScheduleViewPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -6,11 +7,13 @@ import {
   AlertCircle,
   XCircle,
   Search,
-  Filter
+  Filter,
+  Loader
 } from 'lucide-react';
 import { theme } from '../../styles/theme';
+import { api } from '../../services/api';
 
-// Interface para os dados da escala (reaproveitada da página de relatórios)
+// Interface (sem alteração)
 interface ScheduleData {
   id: string;
   date: string;
@@ -18,36 +21,61 @@ interface ScheduleData {
   type: string;
   ministry: string;
   volunteer: string;
-  status: 'confirmado' | 'pendente' | 'troca-solicitada';
+  status: 'pending' | 'confirmed' | 'exchange_requested';
 }
 
-// Dados mockados para simular as escalas do sistema
-const mockSchedulesData: ScheduleData[] = [
-    { id: '1', date: '2025-06-01', time: '19:00', type: 'Missa Dominical', ministry: 'Coro', volunteer: 'Maria Silva', status: 'confirmado' },
-    { id: '2', date: '2025-06-01', time: '19:00', type: 'Missa Dominical', ministry: 'Coro', volunteer: 'João Santos', status: 'pendente' },
-    { id: '3', date: '2025-06-01', time: '08:00', type: 'Missa Matinal', ministry: 'Liturgia', volunteer: 'Pedro Oliveira', status: 'confirmado' },
-    { id: '4', date: '2025-06-01', time: '08:00', type: 'Missa Matinal', ministry: 'Liturgia', volunteer: 'Carla Mendes', status: 'troca-solicitada' },
-    { id: '5', date: '2025-06-02', time: '19:00', type: 'Missa Segunda', ministry: 'Acolhida', volunteer: 'Lucas Ferreira', status: 'pendente' },
-    { id: '6', date: '2025-06-02', time: '19:00', type: 'Missa Segunda', ministry: 'Acolhida', volunteer: 'Beatriz Lima', status: 'confirmado' },
-    { id: '7', date: '2025-06-03', time: '19:00', type: 'Missa Terça', ministry: 'Eucaristia', volunteer: 'Roberto Cruz', status: 'confirmado' },
-    { id: '8', date: '2025-06-03', time: '19:00', type: 'Missa Terça', ministry: 'Eucaristia', volunteer: 'Ana Costa', status: 'troca-solicitada' },
-    { id: '9', date: '2025-06-08', time: '19:00', type: 'Missa Dominical', ministry: 'Coro', volunteer: 'Ricardo Souza', status: 'pendente' },
-    { id: '10', date: '2025-06-08', time: '19:00', type: 'Missa Dominical', ministry: 'Liturgia', volunteer: 'Fernanda Lima', status: 'confirmado' },
-];
-
-const ministries = ['Todos', 'Coro', 'Liturgia', 'Acolhida', 'Eucaristia', 'Leitura'];
+// ⬇️ --- ATUALIZAÇÃO 1: REMOVER A LISTA MOCKADA --- ⬇️
+// const ministries = ['Todos', 'Coro', 'Liturgia', ...]; // Removido!
+// ⬆️ --- FIM DA ATUALIZAÇÃO --- ⬆️
 
 export const ScheduleViewPage: React.FC = () => {
-  const [schedules, setSchedules] = useState<ScheduleData[]>(mockSchedulesData);
-  const [filteredSchedules, setFilteredSchedules] = useState<ScheduleData[]>(mockSchedulesData);
+  const [schedules, setSchedules] = useState<ScheduleData[]>([]);
+  const [filteredSchedules, setFilteredSchedules] = useState<ScheduleData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // ⬇️ --- ATUALIZAÇÃO 2: Criar estado para a lista de ministérios --- ⬇️
+  const [ministryList, setMinistryList] = useState<string[]>(['Todos']); // Começa com 'Todos'
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMinistry, setSelectedMinistry] = useState('Todos');
   const [selectedStatus, setSelectedStatus] = useState('todos');
 
+  // Função para carregar os dados
+  const loadSchedules = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const response = await api.get('/schedules/all');
+      const data: ScheduleData[] = response.data;
+      
+      setSchedules(data);
+      setFilteredSchedules(data);
+
+      // ⬇️ --- ATUALIZAÇÃO 3: Popular a lista de ministérios a partir dos dados --- ⬇️
+      // 1. Cria um Set (lista de itens únicos) com os nomes dos ministérios
+      const uniqueMinistries = new Set(data.map(schedule => schedule.ministry));
+      // 2. Converte de volta para um array, ordena, e adiciona "Todos" no início
+      const sortedList = ['Todos', ...Array.from(uniqueMinistries).sort()];
+      setMinistryList(sortedList);
+      // ⬆️ --- FIM DA ATUALIZAÇÃO --- ⬆️
+
+    } catch (error) {
+      console.error("Erro ao buscar todas as escalas:", error);
+      setApiError("Não foi possível carregar as escalas.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSchedules();
+  }, []);
+
+  // Lógica de filtro (sem alteração)
   useEffect(() => {
     let filtered = schedules;
 
-    // Filtro por termo de busca
     if (searchTerm) {
       filtered = filtered.filter(schedule =>
         schedule.volunteer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,12 +84,10 @@ export const ScheduleViewPage: React.FC = () => {
       );
     }
 
-    // Filtro por ministério
     if (selectedMinistry !== 'Todos') {
       filtered = filtered.filter(schedule => schedule.ministry === selectedMinistry);
     }
 
-    // Filtro por status
     if (selectedStatus !== 'todos') {
       filtered = filtered.filter(schedule => schedule.status === selectedStatus);
     }
@@ -69,35 +95,33 @@ export const ScheduleViewPage: React.FC = () => {
     setFilteredSchedules(filtered);
   }, [searchTerm, selectedMinistry, selectedStatus, schedules]);
 
-  const getStatusColor = (status: string) => {
+  // Funções de ajuda (sem alteração)
+  const getStatusColor = (status: ScheduleData['status']) => {
     switch (status) {
-      case 'confirmado': return theme.colors.success[500];
-      case 'pendente': return theme.colors.warning[500];
-      case 'troca-solicitada': return theme.colors.danger[500];
+      case 'confirmed': return theme.colors.success[500];
+      case 'pending': return theme.colors.warning[500];
+      case 'exchange_requested': return theme.colors.danger[500];
       default: return theme.colors.gray[500];
     }
   };
-
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: ScheduleData['status']) => {
     switch (status) {
-      case 'confirmado': return <CheckCircle size={16} />;
-      case 'pendente': return <AlertCircle size={16} />;
-      case 'troca-solicitada': return <XCircle size={16} />;
+      case 'confirmed': return <CheckCircle size={16} />;
+      case 'pending': return <AlertCircle size={16} />;
+      case 'exchange_requested': return <XCircle size={16} />;
       default: return <AlertCircle size={16} />;
     }
   };
-
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: ScheduleData['status']) => {
     switch (status) {
-      case 'confirmado': return 'Confirmado';
-      case 'pendente': return 'Pendente';
-      case 'troca-solicitada': return 'Troca Solicitada';
-      default: return status;
+      case 'confirmed': return 'Confirmado';
+      case 'pending': return 'Pendente';
+      case 'exchange_requested': return 'Troca Solicitada';
+      default: return 'Desconhecido';
     }
   };
-  
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(dateString + 'T00:00:00');
     return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
   };
 
@@ -105,7 +129,7 @@ export const ScheduleViewPage: React.FC = () => {
     <div style={{ padding: '2rem', backgroundColor: theme.colors.background, minHeight: '100vh' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         
-        {/* Header */}
+        {/* Header (sem alteração) */}
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.875rem', fontWeight: '600', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
             Visualização de Escalas
@@ -130,9 +154,11 @@ export const ScheduleViewPage: React.FC = () => {
                 <Users size={14} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
                 Ministério
               </label>
+              {/* ⬇️ --- ATUALIZAÇÃO 4: Dropdown agora usa 'ministryList' --- ⬇️ */}
               <select value={selectedMinistry} onChange={(e) => setSelectedMinistry(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', backgroundColor: theme.colors.white }}>
-                {ministries.map(ministry => (<option key={ministry} value={ministry}>{ministry}</option>))}
+                {ministryList.map(ministry => (<option key={ministry} value={ministry}>{ministry}</option>))}
               </select>
+              {/* ⬆️ --- FIM DA ATUALIZAÇÃO --- ⬆️ */}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: theme.colors.text.primary, marginBottom: '0.5rem' }}>
@@ -141,26 +167,58 @@ export const ScheduleViewPage: React.FC = () => {
               </label>
               <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${theme.colors.border}`, borderRadius: theme.borderRadius.md, fontSize: '0.875rem', backgroundColor: theme.colors.white }}>
                 <option value="todos">Todos</option>
-                <option value="confirmado">Confirmados</option>
-                <option value="pendente">Pendentes</option>
-                <option value="troca-solicitada">Trocas Solicitadas</option>
+                <option value="confirmed">Confirmados</option>
+                <option value="pending">Pendentes</option>
+                <option value="exchange_requested">Trocas Solicitadas</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Tabela de Escalas */}
+        {/* Tabela (sem alteração) */}
         <div style={{ backgroundColor: theme.colors.white, borderRadius: theme.borderRadius.lg, border: `1px solid ${theme.colors.border}`, boxShadow: theme.shadows.sm, overflow: 'hidden' }}>
           <div style={{ padding: '1rem 1.5rem', borderBottom: `1px solid ${theme.colors.border}`, backgroundColor: theme.colors.gray[50] }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: theme.colors.text.primary }}>
-              Todas as Escalas ({filteredSchedules.length})
+              Todas as Escalas ({isLoading ? '...' : filteredSchedules.length})
             </h3>
           </div>
-          {filteredSchedules.length === 0 ? (
+          
+          {isLoading ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.text.secondary }}>
+              <Loader size={48} style={{ margin: '0 auto 1rem', animation: 'spin 1.5s linear infinite' }} />
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>A carregar escalas...</h3>
+            </div>
+          ) : apiError ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.danger[500] }}>
+              <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>Erro ao Carregar</h3>
+              <p>{apiError}</p>
+              <button 
+                onClick={loadSchedules} 
+                style={{
+                  marginTop: '1rem',
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: theme.colors.danger[500],
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: theme.borderRadius.md,
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 500
+                }}
+              >
+                Tentar Novamente
+              </button>
+            </div>
+          ) : filteredSchedules.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.text.secondary }}>
               <Calendar size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-              <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>Nenhuma escala encontrada</h3>
-              <p>Tente ajustar os filtros de busca.</p>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>
+                {schedules.length === 0 ? 'Nenhuma escala cadastrada no sistema' : 'Nenhuma escala encontrada com estes filtros'}
+              </h3>
+              <p>
+                {schedules.length === 0 ? 'Assim que as escalas forem criadas, aparecerão aqui.' : 'Tente ajustar os filtros de busca.'}
+              </p>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -202,6 +260,13 @@ export const ScheduleViewPage: React.FC = () => {
           )}
         </div>
       </div>
+      {/* CSS para a animação de spin */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
