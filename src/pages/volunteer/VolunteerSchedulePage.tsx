@@ -1,135 +1,148 @@
 // src/pages/volunteer/VolunteerSchedulePage.tsx
-import React, { useState } from 'react';
-import { theme, getStatusColor } from '../../styles/theme'; // Importa getStatusColor do tema
-import { Calendar, Clock, CheckCircle, AlertCircle, XCircle, MessageSquare, X } from 'lucide-react'; // Adicionado X para o botão fechar
+import React, { useState, useEffect } from 'react';
+// ⬇️ --- ATUALIZAÇÃO 1: Remover 'getStatusColor' da importação do tema --- ⬇️
+import { theme } from '../../styles/theme'; 
+import { 
+  Calendar, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  XCircle, 
+  MessageSquare, 
+  X,
+  Loader
+} from 'lucide-react';
+import { api } from '../../services/api';
 
-// Definindo a interface para uma escala de voluntário
+// Interface (correta, em Inglês)
 interface VolunteerSchedule {
   id: string;
-  date: string; // Formato YYYY-MM-DD para fácil manipulação
-  time: string; // Formato HH:MM
-  type: string; // Ex: Missa Dominical, Via Sacra
-  ministry: string; // Ex: Liturgia, Música
-  status: 'pendente' | 'confirmado' | 'troca-solicitada';
-  notes?: string; // Observações da escala (geral da escala, não da troca)
-  requestedChangeReason?: string; // Nova: Justificativa para solicitação de troca
+  scheduleId: string;
+  date: string;
+  time: string;
+  type: string;
+  ministry: string;
+  status: 'pending' | 'confirmed' | 'exchange_requested';
+  notes?: string;
+  requestedChangeReason?: string;
 }
 
 export const VolunteerSchedulePage: React.FC = () => {
-  // Dados mockados das escalas do voluntário
-  const [schedules, setSchedules] = useState<VolunteerSchedule[]>([
-    {
-      id: 'vol-sch-1',
-      date: '2025-06-22', // Hoje
-      time: '19:00',
-      type: 'Missa Dominical',
-      ministry: 'Liturgia',
-      status: 'pendente',
-      notes: 'Por favor, confirmar até amanhã.'
-    },
-    {
-      id: 'vol-sch-2',
-      date: '2025-06-25',
-      time: '08:00',
-      type: 'Missa de Semana',
-      ministry: 'Música',
-      status: 'confirmado',
-      notes: ''
-    },
-    {
-      id: 'vol-sch-3',
-      date: '2025-06-29',
-      time: '10:00',
-      type: 'Missa Dominical',
-      ministry: 'Acolhida',
-      status: 'pendente',
-      notes: 'Trazer crachá de identificação.'
-    },
-    {
-      id: 'vol-sch-4',
-      date: '2025-07-01',
-      time: '19:00',
-      type: 'Terço Comunitário',
-      ministry: 'Acolhida',
-      status: 'troca-solicitada',
-      notes: 'Solicitei troca devido a compromisso familiar.', // Este notes será movido para requestedChangeReason
-      requestedChangeReason: 'Compromisso familiar inadiável.' // Exemplo de como ficaria
-    },
-    {
-      id: 'vol-sch-5',
-      date: '2025-07-05',
-      time: '18:00',
-      type: 'Adoração ao Santíssimo',
-      ministry: 'Liturgia',
-      status: 'confirmado',
-      notes: 'Chegar com 15 minutos de antecedência.'
-    }
-  ]);
+  const [schedules, setSchedules] = useState<VolunteerSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  // Estados para o modal de justificativa de troca
+  // Estados do Modal (sem alteração)
   const [showJustificationModal, setShowJustificationModal] = useState(false);
   const [currentScheduleIdForExchange, setCurrentScheduleIdForExchange] = useState<string | null>(null);
   const [justificationMessage, setJustificationMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Função de carregar dados (sem alteração)
+  const loadSchedules = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const response = await api.get('/schedules/my');
+      setSchedules(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar 'minhas escalas':", error);
+      setApiError("Não foi possível carregar suas escalas. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSchedules();
+  }, []);
+
+  // ⬇️ --- ATUALIZAÇÃO 2: Criar uma 'getStatusColor' LOCAL que usa Inglês --- ⬇️
+  const getStatusColor = (status: VolunteerSchedule['status']) => {
+    switch (status) {
+      case 'confirmed': return theme.colors.success[500];
+      case 'pending': return theme.colors.warning[500];
+      case 'exchange_requested': return theme.colors.danger[500];
+      default: return theme.colors.gray[500];
+    }
+  };
+  // ⬆️ --- FIM DA ATUALIZAÇÃO 2 --- ⬆️
+
+  // Funções de ajuda (corretas, usam Inglês)
   const getStatusIcon = (status: VolunteerSchedule['status']) => {
     switch (status) {
-      case 'confirmado': return <CheckCircle size={16} />;
-      case 'pendente': return <AlertCircle size={16} />;
-      case 'troca-solicitada': return <XCircle size={16} />;
+      case 'confirmed': return <CheckCircle size={16} />;
+      case 'pending': return <AlertCircle size={16} />;
+      case 'exchange_requested': return <XCircle size={16} />;
       default: return <AlertCircle size={16} />;
     }
   };
-
   const getStatusLabel = (status: VolunteerSchedule['status']) => {
     switch (status) {
-      case 'confirmado': return 'Confirmado';
-      case 'pendente': return 'Pendente';
-      case 'troca-solicitada': return 'Troca Solicitada';
+      case 'confirmed': return 'Confirmado';
+      case 'pending': return 'Pendente';
+      case 'exchange_requested': return 'Troca Solicitada';
       default: return 'Desconhecido';
     }
   };
-
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00'); // Adiciona T00:00:00 para evitar problemas de fuso horário
+    const date = new Date(dateString + 'T00:00:00');
     return date.toLocaleDateString('pt-BR', {
-      weekday: 'long', // Dia da semana por extenso
+      weekday: 'long',
       day: '2-digit',
-      month: 'long',   // Mês por extenso
+      month: 'long',
     });
   };
 
-  const handleConfirm = (id: string) => {
-    setSchedules(prevSchedules =>
-      prevSchedules.map(schedule =>
-        schedule.id === id ? { ...schedule, status: 'confirmado', requestedChangeReason: undefined } : schedule
-      )
-    );
-    alert('Escala confirmada com sucesso!');
-  };
-
-  // Abre o modal de justificativa
-  const handleRequestChange = (id: string) => {
-    setCurrentScheduleIdForExchange(id);
-    setJustificationMessage(''); // Limpa a mensagem anterior
-    setShowJustificationModal(true);
-  };
-
-  // Confirma a solicitação de troca com a justificativa
-  const handleConfirmExchangeRequest = () => {
-    if (currentScheduleIdForExchange) {
+  // Funções da API (corretas, usam Inglês)
+  const handleConfirm = async (participationId: string) => {
+    setIsLoading(true);
+    try {
+      await api.put(`/schedules/participation/${participationId}/confirm`);
       setSchedules(prevSchedules =>
         prevSchedules.map(schedule =>
-          schedule.id === currentScheduleIdForExchange
-            ? { ...schedule, status: 'troca-solicitada', requestedChangeReason: justificationMessage.trim() || undefined }
-            : schedule
+          schedule.id === participationId ? { ...schedule, status: 'confirmed', requestedChangeReason: undefined } : schedule
         )
       );
-      alert('Solicitação de troca enviada! Aguarde a aprovação do coordenador.');
-      closeJustificationModal();
+    } catch (error: any) {
+      console.error("Erro ao confirmar:", error);
+      alert(error.response?.data?.message || "Não foi possível confirmar. Tente novamente.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Fecha o modal de justificativa
+  const handleRequestChange = (participationId: string) => {
+    setCurrentScheduleIdForExchange(participationId);
+    setJustificationMessage('');
+    setShowJustificationModal(true);
+  };
+
+  const handleConfirmExchangeRequest = async () => {
+    if (!currentScheduleIdForExchange) return;
+    setIsSubmitting(true);
+    try {
+      await api.put(`/schedules/participation/${currentScheduleIdForExchange}/request-change`, {
+        justificationMessage: justificationMessage.trim() || null
+      });
+      
+      const reason = justificationMessage.trim() || undefined;
+      setSchedules(prevSchedules =>
+        prevSchedules.map(schedule =>
+          schedule.id === currentScheduleIdForExchange
+            ? { ...schedule, status: 'exchange_requested', requestedChangeReason: reason }
+            : schedule
+        )
+      );
+      closeJustificationModal();
+    } catch (error: any) {
+      console.error("Erro ao solicitar troca:", error);
+      alert(error.response?.data?.message || "Não foi possível solicitar a troca.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const closeJustificationModal = () => {
     setShowJustificationModal(false);
     setCurrentScheduleIdForExchange(null);
@@ -139,6 +152,7 @@ export const VolunteerSchedulePage: React.FC = () => {
   return (
     <div style={{ padding: '2rem', backgroundColor: theme.colors.background, minHeight: '100vh' }}>
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        {/* Header */}
         <h1 style={{
           fontSize: '1.875rem',
           fontWeight: '600',
@@ -154,7 +168,35 @@ export const VolunteerSchedulePage: React.FC = () => {
           Visualize suas escalas e horários de participação. Confirme sua presença ou solicite trocas.
         </p>
 
-        {schedules.length === 0 ? (
+        {/* Lógica de Loading/Erro/Vazio (sem alteração) */}
+        {isLoading ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.text.secondary }}>
+            <Loader size={48} style={{ margin: '0 auto 1rem', animation: 'spin 1.5s linear infinite' }} />
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>A carregar as suas escalas...</h3>
+          </div>
+        ) : apiError ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.danger[500] }}>
+            <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>Erro ao Carregar</h3>
+            <p>{apiError}</p>
+            <button 
+              onClick={loadSchedules} 
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: theme.colors.danger[500],
+                color: 'white',
+                border: 'none',
+                borderRadius: theme.borderRadius.md,
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 500
+              }}
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        ) : schedules.length === 0 ? (
           <div style={{
             padding: '3rem',
             textAlign: 'center',
@@ -192,11 +234,11 @@ export const VolunteerSchedulePage: React.FC = () => {
                   boxShadow: theme.shadows.sm,
                   padding: '1.5rem',
                   display: 'grid',
-                  gridTemplateColumns: '1fr 2fr 1.5fr auto', /* Data/Hora | Detalhes | Status/Notas | Ações */
+                  gridTemplateColumns: '1fr 2fr 1.5fr',
                   alignItems: 'center',
                   gap: '1rem',
                   transition: 'all 0.2s ease-in-out',
-                  opacity: schedule.status === 'confirmado' ? 0.8 : 1, // Levemente opaco se confirmado
+                  opacity: schedule.status === 'confirmed' ? 0.8 : 1,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
@@ -226,13 +268,13 @@ export const VolunteerSchedulePage: React.FC = () => {
                   <p style={{ fontSize: '0.875rem', color: theme.colors.text.secondary, marginBottom: '0.5rem' }}>
                     Ministério: <span style={{ fontWeight: '500' }}>{schedule.ministry}</span>
                   </p>
-                  {schedule.notes && schedule.status !== 'troca-solicitada' && ( // Mostra notes gerais, exceto se for solicitação de troca
+                  {schedule.notes && schedule.status !== 'exchange_requested' && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.8rem', color: theme.colors.text.muted }}>
                       <MessageSquare size={14} style={{ minWidth: '14px', marginTop: '2px' }} />
                       <span style={{ fontStyle: 'italic' }}>{schedule.notes}</span>
                     </div>
                   )}
-                  {schedule.status === 'troca-solicitada' && schedule.requestedChangeReason && ( // Mostra justificativa se houver
+                  {schedule.status === 'exchange_requested' && schedule.requestedChangeReason && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.8rem', color: theme.colors.danger[500] }}>
                       <XCircle size={14} style={{ minWidth: '14px', marginTop: '2px' }} />
                       <span style={{ fontStyle: 'italic', fontWeight: '500' }}>Justificativa: {schedule.requestedChangeReason}</span>
@@ -248,6 +290,7 @@ export const VolunteerSchedulePage: React.FC = () => {
                     gap: '0.5rem',
                     padding: '0.3rem 0.8rem',
                     borderRadius: theme.borderRadius.full,
+                    // ⬇️ --- ATUALIZAÇÃO 3: Agora usa a função local (correta) --- ⬇️
                     backgroundColor: `${getStatusColor(schedule.status)}15`,
                     color: getStatusColor(schedule.status),
                     fontSize: '0.8rem',
@@ -257,7 +300,7 @@ export const VolunteerSchedulePage: React.FC = () => {
                     {getStatusLabel(schedule.status)}
                   </div>
 
-                  {schedule.status === 'pendente' && (
+                  {schedule.status === 'pending' && (
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                       <button
                         onClick={() => handleConfirm(schedule.id)}
@@ -304,7 +347,7 @@ export const VolunteerSchedulePage: React.FC = () => {
         )}
       </div>
 
-      {/* Modal de Justificativa de Troca */}
+      {/* Modal de Justificativa (sem alteração) */}
       {showJustificationModal && (
         <div style={{
           position: 'fixed',
@@ -345,6 +388,7 @@ export const VolunteerSchedulePage: React.FC = () => {
               </h2>
               <button
                 onClick={closeJustificationModal}
+                disabled={isSubmitting}
                 style={{
                   padding: '0.5rem',
                   backgroundColor: 'transparent',
@@ -375,6 +419,7 @@ export const VolunteerSchedulePage: React.FC = () => {
                 onChange={(e) => setJustificationMessage(e.target.value)}
                 placeholder="Ex: Não poderei comparecer devido a uma viagem de trabalho inesperada."
                 rows={5}
+                disabled={isSubmitting}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
@@ -398,6 +443,7 @@ export const VolunteerSchedulePage: React.FC = () => {
             }}>
               <button
                 onClick={closeJustificationModal}
+                disabled={isSubmitting}
                 style={{
                   padding: '0.75rem 1.5rem',
                   backgroundColor: 'transparent',
@@ -412,26 +458,37 @@ export const VolunteerSchedulePage: React.FC = () => {
               </button>
               <button
                 onClick={handleConfirmExchangeRequest}
+                disabled={isSubmitting}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  backgroundColor: theme.colors.warning[500],
+                  backgroundColor: isSubmitting ? theme.colors.gray[400] : theme.colors.warning[500],
                   color: theme.colors.white,
                   border: 'none',
                   borderRadius: theme.borderRadius.md,
-                  cursor: 'pointer',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   fontSize: '0.875rem',
                   fontWeight: '600',
-                  transition: 'background-color 0.2s ease-in-out'
+                  transition: 'background-color 0.2s ease-in-out',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.colors.warning[600]; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = theme.colors.warning[500]; }}
               >
-                Enviar Troca
+                {isSubmitting && <Loader size={16} style={{ animation: 'spin 1.5s linear infinite' }} />}
+                {isSubmitting ? 'A enviar...' : 'Enviar Troca'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* CSS para a animação de spin */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

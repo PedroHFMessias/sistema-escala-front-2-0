@@ -1,93 +1,83 @@
 // src/pages/volunteer/VolunteerConfirmationPage.tsx
-import React, { useState } from 'react';
-import { theme, getStatusColor } from '../../styles/theme';
-import { CheckCircle, AlertCircle, XCircle, Calendar, Clock, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react'; // 1. Importado useEffect
+import { theme } from '../../styles/theme'; // 2. 'getStatusColor' removido desta importação
+import { 
+  CheckCircle, 
+  AlertCircle, 
+  XCircle,  
+  Clock, 
+  MessageSquare,
+  Loader // 3. Importado Loader
+} from 'lucide-react';
+import { api } from '../../services/api'; // 4. Importada a API
 
-// Reutilizando a interface de VolunteerSchedule para consistência
+// 5. ATUALIZAÇÃO: Interface agora espera os termos em Inglês
 interface VolunteerSchedule {
-  id: string;
+  id: string; // ID da *participação*
   date: string; // Formato YYYY-MM-DD
   time: string; // Formato HH:MM
   type: string;
   ministry: string;
-  status: 'pendente' | 'confirmado' | 'troca-solicitada';
+  status: 'pending' | 'confirmed' | 'exchange_requested'; // <-- MUDANÇA AQUI
   notes?: string;
-  requestedChangeReason?: string;
 }
 
 export const VolunteerConfirmationPage: React.FC = () => {
-  // Dados mockados das escalas do voluntário (para demonstração)
-  // Usaremos uma variedade de status para testar o filtro
-  const [allVolunteerSchedules] = useState<VolunteerSchedule[]>([
-    {
-      id: 'conf-sch-1',
-      date: '2025-06-15', // Data passada
-      time: '19:00',
-      type: 'Missa Dominical',
-      ministry: 'Liturgia',
-      status: 'confirmado',
-      notes: 'Chegue 15 minutos antes.'
-    },
-    {
-      id: 'conf-sch-2',
-      date: '2025-06-22', // Hoje
-      time: '08:00',
-      type: 'Missa Matinal',
-      ministry: 'Música',
-      status: 'confirmado',
-      notes: ''
-    },
-    {
-      id: 'conf-sch-3',
-      date: '2025-06-29',
-      time: '10:00',
-      type: 'Missa Dominical',
-      ministry: 'Acolhida',
-      status: 'pendente', // Esta não aparecerá no filtro de "Confirmadas"
-      notes: 'Escala importante!'
-    },
-    {
-      id: 'conf-sch-4',
-      date: '2025-07-01',
-      time: '19:00',
-      type: 'Terço Comunitário',
-      ministry: 'Liturgia',
-      status: 'troca-solicitada', // Esta não aparecerá no filtro de "Confirmadas"
-      requestedChangeReason: 'Compromisso de última hora.'
-    },
-    {
-      id: 'conf-sch-5',
-      date: '2025-07-05',
-      time: '18:00',
-      type: 'Adoração ao Santíssimo',
-      ministry: 'Coro',
-      status: 'confirmado',
-      notes: 'Hinos especiais.'
+  // 6. Estados da API
+  const [confirmedSchedules, setConfirmedSchedules] = useState<VolunteerSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // 7. Função para carregar os dados
+  const loadConfirmations = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      // Chama o endpoint GET /schedules/my/confirmations
+      const response = await api.get('/schedules/my/confirmations');
+      setConfirmedSchedules(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar confirmações:", error);
+      setApiError("Não foi possível carregar suas escalas confirmadas.");
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
 
-  // Filtra as escalas para mostrar APENAS as confirmadas
-  const confirmedSchedules = allVolunteerSchedules.filter(
-    (schedule) => schedule.status === 'confirmado'
-  );
+  // 8. Carregar dados ao montar a página
+  useEffect(() => {
+    loadConfirmations();
+  }, []); // [] = Executa apenas uma vez
 
+  // 9. ATUALIZAÇÃO: 'getStatusColor' agora é local e usa Inglês
+  const getStatusColor = (status: VolunteerSchedule['status']) => {
+    switch (status) {
+      case 'confirmed': return theme.colors.success[500];
+      case 'pending': return theme.colors.warning[500];
+      case 'exchange_requested': return theme.colors.danger[500];
+      default: return theme.colors.gray[500];
+    }
+  };
+
+  // 10. ATUALIZAÇÃO: Funções de ajuda usam Inglês nos 'cases'
   const getStatusIcon = (status: VolunteerSchedule['status']) => {
     switch (status) {
-      case 'confirmado': return <CheckCircle size={16} />;
-      case 'pendente': return <AlertCircle size={16} />;
-      case 'troca-solicitada': return <XCircle size={16} />;
+      case 'confirmed': return <CheckCircle size={16} />;
+      case 'pending': return <AlertCircle size={16} />;
+      case 'exchange_requested': return <XCircle size={16} />;
       default: return <AlertCircle size={16} />;
     }
   };
 
   const getStatusLabel = (status: VolunteerSchedule['status']) => {
     switch (status) {
-      case 'confirmado': return 'Confirmado';
-      case 'pendente': return 'Pendente';
-      case 'troca-solicitada': return 'Troca Solicitada';
+      case 'confirmed': return 'Confirmado';
+      case 'pending': return 'Pendente';
+      case 'exchange_requested': return 'Troca Solicitada';
       default: return 'Desconhecido';
     }
   };
+  // ⬆️ --- FIM DAS ATUALIZAÇÕES DE LÓGICA --- ⬆️
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString + 'T00:00:00');
@@ -116,7 +106,35 @@ export const VolunteerConfirmationPage: React.FC = () => {
           Aqui você pode visualizar as escalas que você confirmou sua participação.
         </p>
 
-        {confirmedSchedules.length === 0 ? (
+        {/* 11. ATUALIZAÇÃO: Lógica de Loading, Erro e Lista Vazia */}
+        {isLoading ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.text.secondary }}>
+            <Loader size={48} style={{ margin: '0 auto 1rem', animation: 'spin 1.5s linear infinite' }} />
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>A carregar confirmações...</h3>
+          </div>
+        ) : apiError ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: theme.colors.danger[500] }}>
+            <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '500' }}>Erro ao Carregar</h3>
+            <p>{apiError}</p>
+            <button 
+              onClick={loadConfirmations}
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: theme.colors.danger[500],
+                color: 'white',
+                border: 'none',
+                borderRadius: theme.borderRadius.md,
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 500
+              }}
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        ) : confirmedSchedules.length === 0 ? (
           <div style={{
             padding: '3rem',
             textAlign: 'center',
@@ -154,7 +172,7 @@ export const VolunteerConfirmationPage: React.FC = () => {
                   boxShadow: theme.shadows.sm,
                   padding: '1.5rem',
                   display: 'grid',
-                  gridTemplateColumns: '1fr 2fr 1.5fr', /* Data/Hora | Detalhes | Status */
+                  gridTemplateColumns: '1fr 2fr 1.5fr',
                   alignItems: 'center',
                   gap: '1rem',
                   transition: 'all 0.2s ease-in-out',
@@ -217,6 +235,13 @@ export const VolunteerConfirmationPage: React.FC = () => {
           </div>
         )}
       </div>
+      {/* CSS para a animação de spin */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
